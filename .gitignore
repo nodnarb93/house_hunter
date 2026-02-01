@@ -13,7 +13,6 @@ env/
 
 # IDE / OS
 .idea/
-.vscode/
 .DS_Store
 *.swp
 *.swo
