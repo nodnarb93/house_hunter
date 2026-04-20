@@ -27,3 +27,9 @@ build/
 /playwright-report/
 /blob-report/
 /playwright/.cache/
+
+# Agent & test artifacts
+.playwright/
+.wrangler/
+.dev.vars
+.paperclip/

@@ -8,6 +8,8 @@
     "build": "vite build && node scripts/build-worker.mjs",
     "preview": "vite preview",
     "pages:dev": "npm run build && npx wrangler pages dev dist",
+    "test": "playwright test",
+    "test:list": "playwright test --reporter=list",
     "test:e2e": "playwright test"
   },
   "dependencies": {
