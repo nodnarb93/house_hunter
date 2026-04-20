@@ -7,7 +7,8 @@
     "dev": "vite",
     "build": "vite build && node scripts/build-worker.mjs",
     "preview": "vite preview",
-    "pages:dev": "npm run build && npx wrangler pages dev dist"
+    "pages:dev": "npm run build && npx wrangler pages dev dist",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "react": "^18.3.1",
@@ -16,6 +17,7 @@
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20241127.0",
+    "@playwright/test": "^1.59.1",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
     "@vitejs/plugin-react": "^4.3.3",
@@ -23,5 +25,17 @@
     "typescript": "^5.6.3",
     "vite": "^5.4.10",
     "wrangler": "^3.91.0"
-  }
+  },
+  "description": "An RSS-based listing scraper that runs on Cloudflare Pages. You configure filter presets (feed URLs, price range, keywords, locations), set a schedule, and get webhook notifications when listings match your criteria.",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nodnarb93/House_Hunter.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/nodnarb93/House_Hunter/issues"
+  },
+  "homepage": "https://github.com/nodnarb93/House_Hunter#readme"
 }
