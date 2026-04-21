@@ -17,6 +17,9 @@ env/
 *.swp
 *.swo
 
+# Local SQLite (Node server)
+data/
+
 # Build / output
 dist/
 build/
