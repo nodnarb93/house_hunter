@@ -3,7 +3,7 @@ import path from 'node:path'
 import { serveStatic } from '@hono/node-server/serve-static'
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
-import type { AppDatabase } from './db/d1-shim'
+import type { AppDatabase } from './db/app-database'
 import { dispatchApi } from './dispatch-api'
 import type { Env } from './types'
 

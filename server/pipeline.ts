@@ -1,4 +1,4 @@
-import type { AppDatabase } from './db/d1-shim'
+import type { AppDatabase } from './db/app-database'
 import type { FilterConfig, FeedEntry } from './types'
 import { fetchAndParse } from './scrapers/rssAdapter'
 

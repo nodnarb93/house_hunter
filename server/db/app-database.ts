@@ -2,22 +2,22 @@ import BetterSqlite3 from 'better-sqlite3'
 
 export type RawSqliteDatabase = InstanceType<typeof BetterSqlite3>
 
-export interface D1RunResult {
+export interface SqlRunResult {
   meta: { last_row_id: number }
 }
 
-export interface D1PreparedStatement {
-  bind(...values: unknown[]): D1PreparedStatement
+export interface SqlPreparedStatement {
+  bind(...values: unknown[]): SqlPreparedStatement
   first<T = unknown>(): Promise<T | null>
   all<T = unknown>(): Promise<{ results: T[] }>
-  run(): Promise<D1RunResult>
+  run(): Promise<SqlRunResult>
 }
 
 export interface AppDatabase {
-  prepare(sql: string): D1PreparedStatement
+  prepare(sql: string): SqlPreparedStatement
 }
 
-class PreparedStatement implements D1PreparedStatement {
+class PreparedStatement implements SqlPreparedStatement {
   private params: unknown[] = []
 
   constructor(
@@ -25,12 +25,12 @@ class PreparedStatement implements D1PreparedStatement {
     private readonly sql: string
   ) {}
 
-  bind(...values: unknown[]): D1PreparedStatement {
+  bind(...values: unknown[]): SqlPreparedStatement {
     this.params = values
     return this
   }
 
-  run(): Promise<D1RunResult> {
+  run(): Promise<SqlRunResult> {
     return Promise.resolve().then(() => {
       const stmt = this.db.prepare(this.sql)
       const result = stmt.run(...this.params)

@@ -7,6 +7,9 @@ export default defineConfig({
     url: 'http://localhost:3001',
     reuseExistingServer: true,
     timeout: 120_000,
+    env: {
+      DISABLE_SCHEDULED_SCRAPES: '1',
+    },
   },
   projects: [
     {

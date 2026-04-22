@@ -1,6 +1,6 @@
 import fs from 'node:fs'
 import path from 'node:path'
-import type { RawSqliteDatabase } from './d1-shim'
+import type { RawSqliteDatabase } from './app-database'
 
 const LEDGER = `CREATE TABLE IF NOT EXISTS schema_migrations (
   filename TEXT PRIMARY KEY NOT NULL,
