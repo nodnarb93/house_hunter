@@ -2,5 +2,19 @@ import { defineConfig, devices } from '@playwright/test';
 
 export default defineConfig({
   testDir: './qa',
-  projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
+  webServer: {
+    command: 'npm start',
+    url: 'http://localhost:3001',
+    reuseExistingServer: true,
+    timeout: 120_000,
+  },
+  projects: [
+    {
+      name: 'chromium',
+      use: {
+        baseURL: process.env.PLAYWRIGHT_BASE_URL ?? 'http://localhost:3001',
+        ...devices['Desktop Chrome'],
+      },
+    },
+  ],
 });

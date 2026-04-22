@@ -27,7 +27,7 @@ export default function Schedule() {
     setSaving(true)
     try {
       await putSchedule(intervalHours, active)
-      setSuccess('Schedule saved. Cron runs every ' + intervalHours + ' hour(s) (UTC).')
+      setSuccess('Schedule saved. The coordinator will run every ' + intervalHours + ' hour(s).')
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to save')
     } finally {
@@ -40,7 +40,7 @@ export default function Schedule() {
   return (
     <>
       <h1>Schedule</h1>
-      <p>Set how often the pipeline runs. The Worker cron trigger is configured in wrangler.toml (e.g. every 6 hours). This page stores your preferred interval for reference; ensure it matches your cron.</p>
+      <p>Set how often the pipeline runs. Scheduled runs are handled by the coordinator. Use this page to choose the interval in hours and whether scheduled runs are enabled.</p>
       <div className="form-group">
         <label>Run every (hours)</label>
         <select

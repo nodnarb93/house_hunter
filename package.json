@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "start": "npx vite build && npx tsx server/index.ts",
     "build": "vite build && node scripts/build-worker.mjs",
     "preview": "vite preview",
     "pages:dev": "npm run build && npx wrangler pages dev dist",
