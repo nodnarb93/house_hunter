@@ -12,7 +12,7 @@ export interface ScraperSourceRow {
 
 export async function handleScrapers(request: Request, env: Env): Promise<Response> {
   const url = new URL(request.url)
-  const pathname = url.pathname.replace(/\/$/, '')
+  const pathname = url.pathname.replace(/\/$/, '').replace('/api/scraper-sources', '/api/scrapers')
 
   if (pathname === '/api/scrapers/resolve-redfin') {
     if (request.method !== 'POST') return new Response('Method not allowed', { status: 405 })

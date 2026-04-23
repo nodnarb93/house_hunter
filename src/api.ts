@@ -17,14 +17,14 @@ export interface FilterPreset {
 }
 
 export async function getFilters(): Promise<FilterPreset[]> {
-  const r = await fetch(`${API}/filters`)
+  const r = await fetch(`${API}/filter-presets`)
   if (!r.ok) throw new Error(await r.text())
   return r.json()
 }
 
 export async function saveFilter(preset: { id?: number; name: string; config: FilterConfig }): Promise<FilterPreset> {
   const body = preset.id ? { id: preset.id, name: preset.name, config: JSON.stringify(preset.config) } : { name: preset.name, config: JSON.stringify(preset.config) }
-  const r = await fetch(`${API}/filters`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+  const r = await fetch(`${API}/filter-presets`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
   if (!r.ok) throw new Error(await r.text())
   return r.json()
 }
@@ -110,13 +110,13 @@ export interface RedfinParams {
 }
 
 export async function getScrapers(): Promise<ScraperSource[]> {
-  const r = await fetch(`${API}/scrapers`)
+  const r = await fetch(`${API}/scraper-sources`)
   if (!r.ok) throw new Error(await r.text())
   return r.json()
 }
 
 export async function addScraper(url: string): Promise<ScraperSource> {
-  const r = await fetch(`${API}/scrapers`, {
+  const r = await fetch(`${API}/scraper-sources`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ url: url.trim() }),
@@ -126,7 +126,7 @@ export async function addScraper(url: string): Promise<ScraperSource> {
 }
 
 export async function addScraperRedfin(params: RedfinParams): Promise<ScraperSource> {
-  const r = await fetch(`${API}/scrapers`, {
+  const r = await fetch(`${API}/scraper-sources`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ kind: 'redfin', ...params }),
@@ -136,12 +136,12 @@ export async function addScraperRedfin(params: RedfinParams): Promise<ScraperSou
 }
 
 export async function removeScraper(id: number): Promise<void> {
-  const r = await fetch(`${API}/scrapers/${id}`, { method: 'DELETE' })
+  const r = await fetch(`${API}/scraper-sources/${id}`, { method: 'DELETE' })
   if (!r.ok) throw new Error(await r.text())
 }
 
 export async function testScraper(url: string): Promise<{ ok: boolean; type?: string; count?: number; error?: string }> {
-  const r = await fetch(`${API}/scrapers/test`, {
+  const r = await fetch(`${API}/scraper-sources/test`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ url: url.trim() }),
@@ -152,7 +152,7 @@ export async function testScraper(url: string): Promise<{ ok: boolean; type?: st
 }
 
 export async function testScraperById(id: number): Promise<{ ok: boolean; type?: string; count?: number; error?: string }> {
-  const r = await fetch(`${API}/scrapers/test`, {
+  const r = await fetch(`${API}/scraper-sources/test`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ id }),
@@ -165,7 +165,7 @@ export async function testScraperById(id: number): Promise<{ ok: boolean; type?:
 export async function resolveRedfinUrl(
   url: string
 ): Promise<{ region_id: number; region_type: number; market: string }> {
-  const r = await fetch(`${API}/scrapers/resolve-redfin`, {
+  const r = await fetch(`${API}/scraper-sources/resolve-redfin`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ url: url.trim() }),
