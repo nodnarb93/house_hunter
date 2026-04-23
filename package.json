@@ -5,37 +5,35 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "start": "npx vite build && npx tsx server/index.ts",
-    "build": "vite build && node scripts/build-worker.mjs",
+    "start": "vite build && tsx server/index.ts",
+    "build": "vite build",
     "preview": "vite preview",
-    "pages:dev": "npm run build && npx wrangler pages dev dist",
     "server:dev": "tsx watch server/index.ts",
+    "scrape": "tsx server/scrape.ts",
     "test": "playwright test",
-    "test:list": "playwright test --reporter=list",
-    "test:e2e": "playwright test"
+    "test:list": "playwright test --reporter=list"
   },
   "dependencies": {
     "@hono/node-server": "^2.0.0",
     "better-sqlite3": "^12.9.0",
     "hono": "^4.12.14",
+    "node-cron": "^3.0.3",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-router-dom": "^6.28.0"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "^4.20241127.0",
     "@playwright/test": "^1.59.1",
     "@types/better-sqlite3": "^7.6.13",
+    "@types/node-cron": "^3.0.11",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
     "@vitejs/plugin-react": "^4.3.3",
-    "esbuild": "^0.24.0",
     "tsx": "^4.21.0",
     "typescript": "^5.6.3",
-    "vite": "^5.4.10",
-    "wrangler": "^3.91.0"
+    "vite": "^5.4.10"
   },
-  "description": "An RSS-based listing scraper that runs on Cloudflare Pages. You configure filter presets (feed URLs, price range, keywords, locations), set a schedule, and get webhook notifications when listings match your criteria.",
+  "description": "A local RSS-based listing scraper. Configure filter presets, scraper sources, and schedule; get webhook notifications when listings match. Runs on Node.js with SQLite — no cloud dependencies.",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/nodnarb93/House_Hunter.git"

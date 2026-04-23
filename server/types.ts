@@ -1,4 +1,4 @@
-import type { AppDatabase } from './db/d1-shim'
+import type { AppDatabase } from './db/app-database'
 
 export interface FilterConfig {
   feedUrls: string[]

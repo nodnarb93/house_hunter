@@ -33,6 +33,5 @@ build/
 
 # Agent & test artifacts
 .playwright/
-.wrangler/
 .dev.vars
 .paperclip/

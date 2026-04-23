@@ -1,7 +1,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import BetterSqlite3 from 'better-sqlite3'
-import type { RawSqliteDatabase } from './d1-shim'
+import type { RawSqliteDatabase } from './app-database'
 
 const DEFAULT_PATH = path.join('data', 'house_hunter.sqlite')
 
