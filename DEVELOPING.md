@@ -2,6 +2,56 @@
 
 Hard-won setup notes for developers and AI agents, especially in the Paperclip Docker environment. If something here drifts from the code or infra, update this file in the same change.
 
+## Agent Pipeline Conventions
+
+This repo is operated by an agent pipeline (see [AGENT_WORKFLOW.md](AGENT_WORKFLOW.md) for the full architecture). The notes below are the operational details every agent and human contributor needs.
+
+### Branch policy
+
+- **CTO** may push directly to `main` after QA has reported `PASS`. CTO is also responsible for deleting the feature branch (local + remote) after merge.
+- **Coder** must only push to feature branches named `feat/BIZ-N-description`, where `N` is the Paperclip issue number. Never push to `main`.
+- **QA** does not commit or push at all — read-only role.
+- **Enforcement is by instructions, not by git permissions.** All agents share a single `GITHUB_TOKEN` in the container, so git itself cannot distinguish between them. Each agent's `AGENTS.md` describes its boundaries; violating those boundaries is a process bug, not a permission error.
+- A pre-push hook safety net is a **future** enhancement. It is not currently deployed — do not assume it will catch a bad push.
+
+### PORT convention
+
+- The House Hunter app runs on **port 3001**.
+- Paperclip's own server runs on **port 3100**, and agents inherit `PORT=3100` from the container environment by default.
+- When running `npm start` manually inside the container, override with **`PORT=3001 npm start`**, otherwise the Node server will bind to 3100 and collide with Paperclip.
+- Playwright's `playwright.config.ts` already injects `PORT=3001` on its `webServer` block, so test runs do not need a manual override.
+
+### Shell user discipline
+
+- The container base runs Paperclip as **root**, but agents execute as the **`node`** user (UID 1000).
+- **Always enter the container as `node`** when doing repo work:
+  ```bash
+  docker exec -u node -it paperclip-server-personal bash
+  ```
+- If you land as root and create files (or run `npm install`), they end up root-owned. Agents running as `node` will then hit `EACCES` when they try to write to the same paths.
+
+### Test artifacts
+
+- `test-results/` is gitignored.
+- If it becomes root-owned (typically from a stray root-shell `npm test`), fix from a root shell with:
+  ```bash
+  rm -rf test-results && chown -R node:node /paperclip/workspaces/house_hunter
+  ```
+
+### Playwright browsers
+
+- Pre-installed to **`/opt/playwright-browsers`** via the Dockerfile. The path is baked into the `PLAYWRIGHT_BROWSERS_PATH` environment variable.
+- **Don't reinstall browsers** unless you are intentionally upgrading the Playwright version.
+
+### node_modules
+
+- Managed as a **named Docker volume**, not a bind mount. The Windows-side `node_modules` and the container-side `node_modules` are separate trees.
+- **Install from inside the container** with:
+  ```bash
+  npm install --include=dev
+  ```
+- The `--include=dev` flag matters because `NODE_ENV=production` in the container would otherwise skip `devDependencies` (including Vite, Playwright, tsx).
+
 ## Running the app locally
 
 - The app listens on port **3001** (Node + Hono server; `vite build` writes the frontend to `dist/`, one process serves API and static assets).
