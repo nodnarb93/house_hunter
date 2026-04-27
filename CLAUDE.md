@@ -27,12 +27,18 @@ npm test                 # Playwright
 npm run test:list        # Playwright, list reporter
 ```
 
-## Branch and commit conventions
+## Git Workflow
 
-- Do not push directly to `main`. Use a feature branch.
-- Branch naming: `feat/…`, `fix/…`, `chore/…`, `refactor/…`.
-- For Paperclip issues, include the issue ID in the branch name and commits when applicable.
-- One logical change per PR where possible.
+**Agents operating in this repository MUST follow this branch policy:**
+
+- **Coder agents**: Only push to feature branches. Branch naming: `feat/BIZ-N-short-description` where N is the Paperclip issue number. NEVER push to main directly. Commit messages must reference the issue ID (e.g., "feat: implement X per BIZ-9").
+- **CTO agent**: Has authority to merge feature branches to main via `git merge` and `git push origin main` after QA has verified the work. CTO should delete the feature branch after merging (`git push origin --delete feat/BIZ-N-...` and `git branch -d feat/BIZ-N-...`).
+- **QA agent**: Does not commit. Ever. QA only reads, runs tests, and reports.
+- **Human (Board)**: May push directly to main for emergency fixes or doc-only changes. Expected to use this authority sparingly; prefer the pipeline when feasible.
+
+This policy is enforced through agent instructions (each agent's [AGENTS.md](AGENTS.md) describes its git boundaries). It is not enforced at the git permission level since all agents share a single GitHub PAT. A pre-push hook safety net is a planned future enhancement.
+
+**All tests must pass before any merge to main.** No skipping tests. No commenting out failing tests. If a test is wrong, fix the test via the normal pipeline; don't bypass it.
 
 ## Files you must not modify without explicit instruction
 
