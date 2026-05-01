@@ -2,6 +2,8 @@
 
 A local RSS-based listing scraper. You configure filter presets (feed URLs, price range, keywords, locations), scraper sources, and how often runs should happen; when listings match, the app can POST to a webhook (Discord, Slack, or similar). **There are no cloud services or deployment targets** — everything runs on your machine with Node.js and a SQLite file.
 
+[![Port](https://img.shields.io/badge/port-3001-blue)](http://localhost:3001)
+
 ## Architecture
 
 - **Frontend**: Vite + React SPA in `src/` for scrapers, filter presets, schedule, settings, and run history.
