@@ -216,27 +216,6 @@ button.secondary:hover {
   align-items: center;
 }
 
-.scrapers-badge {
-  flex-shrink: 0;
-  font-size: 0.7rem;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  text-transform: uppercase;
-  padding: 0.2rem 0.45rem;
-  border-radius: 999px;
-  line-height: 1.2;
-}
-
-.scrapers-badge-rss {
-  background: #e8f0fe;
-  color: #174ea6;
-}
-
-.scrapers-badge-redfin {
-  background: #fde7e9;
-  color: #8b1538;
-}
-
 .scrapers-status-dot {
   flex-shrink: 0;
   width: 9px;
@@ -272,37 +251,8 @@ button.secondary:hover {
   }
 }
 
-.scrapers-type-tabs {
-  display: flex;
-  gap: 0.35rem;
-  margin-bottom: 1rem;
-  flex-wrap: wrap;
-}
-
-.scrapers-tab {
-  padding: 0.45rem 0.85rem;
-  border-radius: 6px;
-  border: 1px solid #ccc;
-  background: #f0f0f0;
-  color: #333;
-  font-size: 0.9rem;
-  cursor: pointer;
-}
-
-.scrapers-tab:hover {
-  background: #e5e5e5;
-}
-
-.scrapers-tab-active {
-  background: #0066cc;
-  color: #fff;
-  border-color: #0066cc;
-  font-weight: 600;
-}
-
-.scrapers-tab-active:hover {
-  background: #0052a3;
-  border-color: #0052a3;
+.scrapers-type-select {
+  max-width: 280px;
 }
 
 .scrapers-add-panel {

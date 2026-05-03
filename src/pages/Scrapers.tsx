@@ -14,26 +14,13 @@ const REGION_TYPE_OPTIONS = [
   { value: 2, label: 'Zip code' },
 ] as const
 
-const PROPERTY_TYPE_OPTIONS = [
-  { value: '1', label: 'House' },
-  { value: '2', label: 'Condo' },
-  { value: '3', label: 'Townhouse' },
-  { value: '4', label: 'Multi-family' },
-  { value: '5', label: 'Land' },
-  { value: '6', label: 'Other' },
-] as const
-
 const defaultRedfinParams: RedfinParams = {
   region_id: 0,
   region_type: 6,
   market: '',
-  num_homes: 350,
-  page_number: 1,
-  status: 9,
-  v: 8,
 }
 
-type AddKind = 'rss' | 'redfin' | null
+type SelectedSourceType = 'rss' | 'redfin' | null
 
 function sortSourcesRecentFirst(list: ScraperSource[]): ScraperSource[] {
   return [...list].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
@@ -47,9 +34,9 @@ function formatWhen(iso: string): string {
   }
 }
 
-function primaryLabel(s: ScraperSource): string {
-  if (s.kind === 'rss') return s.url || '(no URL)'
-  if (s.url?.trim()) return s.url
+function rowLabel(s: ScraperSource): string {
+  if (s.url?.trim()) return s.url.trim()
+  if (s.kind === 'rss') return '(no URL)'
   if (s.config_json) {
     try {
       const c = JSON.parse(s.config_json) as { market?: string }
@@ -58,7 +45,7 @@ function primaryLabel(s: ScraperSource): string {
       /* ignore */
     }
   }
-  return `Redfin source #${s.id}`
+  return `Source ${s.id}`
 }
 
 function statusDotClass(s: ScraperSource, testingId: number | null): string {
@@ -78,7 +65,7 @@ function statusDotTitle(s: ScraperSource, testingId: number | null): string {
 export default function Scrapers() {
   const [sources, setSources] = useState<ScraperSource[]>([])
   const [loading, setLoading] = useState(true)
-  const [addKind, setAddKind] = useState<AddKind>(null)
+  const [selectedSourceType, setSelectedSourceType] = useState<SelectedSourceType>(null)
   const [redfinParams, setRedfinParams] = useState<RedfinParams>({ ...defaultRedfinParams })
   const [redfinLocationUrl, setRedfinLocationUrl] = useState('')
   const [resolvingLocation, setResolvingLocation] = useState(false)
@@ -87,21 +74,8 @@ export default function Scrapers() {
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
   const [testingId, setTestingId] = useState<number | null>(null)
-  const [advancedOpen, setAdvancedOpen] = useState(false)
 
   const sortedSources = useMemo(() => sortSourcesRecentFirst(sources), [sources])
-
-  const selectedPropertyTypes = (redfinParams.uipt ?? '')
-    .split(',')
-    .map((s) => s.trim())
-    .filter(Boolean)
-  const togglePropertyType = (value: string) => {
-    const set = new Set(selectedPropertyTypes)
-    if (set.has(value)) set.delete(value)
-    else set.add(value)
-    const uipt = [...set].sort().join(',') || undefined
-    setRedfinParams((p) => ({ ...p, uipt }))
-  }
 
   const resolveLocation = async () => {
     setError('')
@@ -150,7 +124,8 @@ export default function Scrapers() {
     }
     try {
       await addScraperRedfin({
-        ...redfinParams,
+        region_id: redfinParams.region_id,
+        region_type: redfinParams.region_type,
         market: market.toLowerCase().replace(/\s+/g, '-'),
       })
       setSuccess('Redfin source added.')
@@ -224,14 +199,13 @@ export default function Scrapers() {
 
       <section className="scrapers-section" aria-labelledby="scrapers-active-heading">
         <h2 id="scrapers-active-heading" className="scrapers-section-title">
-          Active sources
+          Active Scrapers
         </h2>
         {sortedSources.length === 0 ? (
-          <p className="scrapers-empty">No sources configured yet. Add an RSS feed or a Redfin region below.</p>
+          <p className="scrapers-empty">No scrapers configured yet.</p>
         ) : (
           <ul className="scrapers-active-list">
             {sortedSources.map((s) => {
-              const isRss = s.kind === 'rss'
               const lastTestedLine =
                 s.last_tested_at != null && s.last_tested_at !== ''
                   ? `Last tested: ${formatWhen(s.last_tested_at)}`
@@ -244,12 +218,8 @@ export default function Scrapers() {
                       title={statusDotTitle(s, testingId)}
                       aria-hidden
                     />
-                    <span className={isRss ? 'scrapers-badge scrapers-badge-rss' : 'scrapers-badge scrapers-badge-redfin'}>
-                      {isRss ? 'RSS' : 'Redfin'}
-                    </span>
                     <div className="scrapers-row-text">
-                      <div className="scrapers-row-title">{primaryLabel(s)}</div>
-                      <div className="scrapers-row-meta">Added {formatWhen(s.created_at)}</div>
+                      <div className="scrapers-row-title">{rowLabel(s)}</div>
                       <div className="scrapers-row-meta">{lastTestedLine}</div>
                     </div>
                   </div>
@@ -276,31 +246,29 @@ export default function Scrapers() {
 
       <section className="scrapers-section" aria-labelledby="scrapers-add-heading">
         <h2 id="scrapers-add-heading" className="scrapers-section-title">
-          Add source
+          Add New Scraper
         </h2>
-        <div className="scrapers-type-tabs" role="tablist" aria-label="Source type">
-          <button
-            type="button"
-            role="tab"
-            aria-selected={addKind === 'rss'}
-            className={addKind === 'rss' ? 'scrapers-tab scrapers-tab-active' : 'scrapers-tab'}
-            onClick={() => setAddKind('rss')}
+        <div className="form-group">
+          <label htmlFor="scrapers-type-select">Source type</label>
+          <select
+            id="scrapers-type-select"
+            className="form-select scrapers-type-select"
+            value={selectedSourceType ?? ''}
+            onChange={(e) => {
+              const v = e.target.value
+              setSelectedSourceType(v === '' ? null : (v as 'rss' | 'redfin'))
+              setError('')
+              setSuccess('')
+            }}
           >
-            RSS / Atom feed
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={addKind === 'redfin'}
-            className={addKind === 'redfin' ? 'scrapers-tab scrapers-tab-active' : 'scrapers-tab'}
-            onClick={() => setAddKind('redfin')}
-          >
-            Redfin region
-          </button>
+            <option value="">Select source type…</option>
+            <option value="redfin">Redfin</option>
+            <option value="rss">RSS / Atom</option>
+          </select>
         </div>
 
-        {addKind === 'rss' && (
-          <div className="scrapers-add-panel" role="tabpanel">
+        {selectedSourceType === 'rss' && (
+          <div className="scrapers-add-panel">
             <p className="form-hint" style={{ marginTop: 0 }}>
               Paste a full feed URL. Generic RSS and Atom feeds are supported.
             </p>
@@ -323,8 +291,8 @@ export default function Scrapers() {
           </div>
         )}
 
-        {addKind === 'redfin' && (
-          <div className="scrapers-add-panel" role="tabpanel">
+        {selectedSourceType === 'redfin' && (
+          <div className="scrapers-add-panel">
             <div className="form-group redfin-form-block">
               <label className="form-label-main">Location (region is resolved from URL)</label>
               <p className="form-hint">
@@ -378,129 +346,6 @@ export default function Scrapers() {
                 style={{ maxWidth: 240 }}
               />
             </div>
-
-            <div style={{ display: 'grid', gap: '0.75rem 1.25rem', gridTemplateColumns: '1fr 1fr', maxWidth: 520 }}>
-              <div className="form-group">
-                <label>Minimum price ($)</label>
-                <input
-                  type="number"
-                  value={redfinParams.min_price ?? ''}
-                  onChange={(e) => setRedfinParams((p) => ({ ...p, min_price: e.target.value ? Number(e.target.value) : undefined }))}
-                  placeholder="200,000"
-                />
-              </div>
-              <div className="form-group">
-                <label>Maximum price ($)</label>
-                <input
-                  type="number"
-                  value={redfinParams.max_price ?? ''}
-                  onChange={(e) => setRedfinParams((p) => ({ ...p, max_price: e.target.value ? Number(e.target.value) : undefined }))}
-                  placeholder="600,000"
-                />
-              </div>
-              <div className="form-group">
-                <label>Min bedrooms</label>
-                <input
-                  type="number"
-                  min={0}
-                  value={redfinParams.min_beds ?? ''}
-                  onChange={(e) => setRedfinParams((p) => ({ ...p, min_beds: e.target.value ? Number(e.target.value) : undefined }))}
-                  placeholder="3"
-                />
-              </div>
-              <div className="form-group">
-                <label>Max bedrooms</label>
-                <input
-                  type="number"
-                  min={0}
-                  value={redfinParams.max_beds ?? ''}
-                  onChange={(e) => setRedfinParams((p) => ({ ...p, max_beds: e.target.value ? Number(e.target.value) : undefined }))}
-                  placeholder="5"
-                />
-              </div>
-              <div className="form-group">
-                <label>Min bathrooms</label>
-                <input
-                  type="number"
-                  min={0}
-                  step={0.5}
-                  value={redfinParams.min_baths ?? ''}
-                  onChange={(e) => setRedfinParams((p) => ({ ...p, min_baths: e.target.value ? Number(e.target.value) : undefined }))}
-                  placeholder="2"
-                />
-              </div>
-              <div className="form-group">
-                <label>Max bathrooms</label>
-                <input
-                  type="number"
-                  min={0}
-                  step={0.5}
-                  value={redfinParams.max_baths ?? ''}
-                  onChange={(e) => setRedfinParams((p) => ({ ...p, max_baths: e.target.value ? Number(e.target.value) : undefined }))}
-                  placeholder="3"
-                />
-              </div>
-            </div>
-
-            <div className="form-group">
-              <label className="form-label-main">Property types</label>
-              <p className="form-hint">Select one or more. Leave empty for all.</p>
-              <div className="form-multiselect" style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem 1rem' }}>
-                {PROPERTY_TYPE_OPTIONS.map((o) => (
-                  <label key={o.value} style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', cursor: 'pointer' }}>
-                    <input
-                      type="checkbox"
-                      checked={selectedPropertyTypes.includes(o.value)}
-                      onChange={() => togglePropertyType(o.value)}
-                    />
-                    <span>{o.label}</span>
-                  </label>
-                ))}
-              </div>
-            </div>
-
-            <details className="form-group" open={advancedOpen} onToggle={(e) => setAdvancedOpen((e.target as HTMLDetailsElement).open)}>
-              <summary style={{ cursor: 'pointer', fontWeight: 500 }}>Advanced</summary>
-              <div style={{ display: 'grid', gap: '0.5rem 1rem', gridTemplateColumns: '1fr 1fr', marginTop: '0.5rem', maxWidth: 360 }}>
-                <div className="form-group">
-                  <label>Results per page</label>
-                  <input
-                    type="number"
-                    value={redfinParams.num_homes ?? 350}
-                    onChange={(e) => setRedfinParams((p) => ({ ...p, num_homes: e.target.value ? Number(e.target.value) : 350 }))}
-                    placeholder="350"
-                  />
-                </div>
-                <div className="form-group">
-                  <label>Page number</label>
-                  <input
-                    type="number"
-                    min={1}
-                    value={redfinParams.page_number ?? 1}
-                    onChange={(e) => setRedfinParams((p) => ({ ...p, page_number: e.target.value ? Number(e.target.value) : 1 }))}
-                    placeholder="1"
-                  />
-                </div>
-                <div className="form-group">
-                  <label>Status (9 = active)</label>
-                  <input
-                    type="number"
-                    value={redfinParams.status ?? 9}
-                    onChange={(e) => setRedfinParams((p) => ({ ...p, status: e.target.value ? Number(e.target.value) : 9 }))}
-                    placeholder="9"
-                  />
-                </div>
-                <div className="form-group">
-                  <label>API version</label>
-                  <input
-                    type="number"
-                    value={redfinParams.v ?? 8}
-                    onChange={(e) => setRedfinParams((p) => ({ ...p, v: e.target.value ? Number(e.target.value) : 8 }))}
-                    placeholder="8"
-                  />
-                </div>
-              </div>
-            </details>
 
             <div style={{ marginTop: '0.75rem' }}>
               <button type="button" onClick={addRedfin}>
