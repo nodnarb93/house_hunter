@@ -192,9 +192,15 @@ export default function Scrapers() {
 
   const test = async (source: ScraperSource) => {
     setError('')
+    setSuccess('')
     setTestingId(source.id)
     try {
-      await testScraperById(source.id)
+      const result = await testScraperById(source.id)
+      if (result.ok) {
+        setSuccess(`Test passed — ${result.count ?? 0} listing(s) found`)
+      } else {
+        setError(result.error ?? 'Test failed')
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Test failed')
     } finally {
