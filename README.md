@@ -51,13 +51,17 @@ Use your OS scheduler to invoke that command on whatever cadence you want, or re
 
 ### Always-on with PM2
 
-[PM2](https://pm2.keymetrics.io/) keeps the app running across crashes and can register with your init system so it starts on boot.
+[PM2](https://pm2.keymetrics.io/) is a dev dependency. Build the SPA once, then start the server under PM2 (port **3001** is set in `ecosystem.config.cjs` so an ambient `PORT` such as `3100` does not override it).
 
-1. Install PM2 globally (`npm install -g pm2`) or invoke it with `npx pm2`.
-2. From the repo root: `pm2 start ecosystem.config.cjs` (or `npm run pm2:start` if `pm2` is on your `PATH`).
-3. Optional: `pm2 save` and `pm2 startup` so the process list is restored after reboot (see PM2’s startup guide for your OS).
+```bash
+npm run build
+npm run pm2:start   # npx tsx server/index.ts
+npm run pm2:status
+npm run pm2:logs
+npm run pm2:stop
+```
 
-The ecosystem file runs `npm start` (production build + Node server on port **3001** by default). Override `PORT`, `DATABASE_PATH`, or `DISABLE_SCHEDULED_SCRAPES` in the environment before starting, or edit `ecosystem.config.cjs` `env` / use `pm2 start … --update-env`.
+Optional: `pm2 save` and `pm2 startup` so processes survive reboot (see PM2 docs). Set `DATABASE_PATH` or `DISABLE_SCHEDULED_SCRAPES` in `ecosystem.config.cjs` `env` or via `pm2 start … --update-env` if needed.
 
 **Environment**
 
