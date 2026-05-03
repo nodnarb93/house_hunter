@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { ScraperSource, RedfinParams } from '../api'
 import {
   getScrapers,
@@ -8,9 +8,6 @@ import {
   testScraperById,
   resolveRedfinUrl,
 } from '../api'
-
-const WEBSITE_OPTIONS = ['Redfin'] as const
-type WebsiteId = (typeof WEBSITE_OPTIONS)[number]
 
 const REGION_TYPE_OPTIONS = [
   { value: 6, label: 'City' },
@@ -36,10 +33,38 @@ const defaultRedfinParams: RedfinParams = {
   v: 8,
 }
 
+type AddKind = 'rss' | 'redfin'
+
+function sortSourcesRecentFirst(list: ScraperSource[]): ScraperSource[] {
+  return [...list].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+}
+
+function formatWhen(iso: string): string {
+  try {
+    return new Date(iso).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })
+  } catch {
+    return iso
+  }
+}
+
+function primaryLabel(s: ScraperSource): string {
+  if (s.kind === 'rss') return s.url || '(no URL)'
+  if (s.url?.trim()) return s.url
+  if (s.config_json) {
+    try {
+      const c = JSON.parse(s.config_json) as { market?: string }
+      if (c.market) return `Redfin · ${c.market}`
+    } catch {
+      /* ignore */
+    }
+  }
+  return `Redfin source #${s.id}`
+}
+
 export default function Scrapers() {
   const [sources, setSources] = useState<ScraperSource[]>([])
   const [loading, setLoading] = useState(true)
-  const [selectedWebsites, setSelectedWebsites] = useState<Set<WebsiteId>>(new Set(WEBSITE_OPTIONS))
+  const [addKind, setAddKind] = useState<AddKind>('rss')
   const [redfinParams, setRedfinParams] = useState<RedfinParams>({ ...defaultRedfinParams })
   const [redfinLocationUrl, setRedfinLocationUrl] = useState('')
   const [resolvingLocation, setResolvingLocation] = useState(false)
@@ -48,8 +73,10 @@ export default function Scrapers() {
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
   const [testingId, setTestingId] = useState<number | null>(null)
-  const [testResult, setTestResult] = useState<{ id: number; message: string } | null>(null)
+  const [lastTestById, setLastTestById] = useState<Record<number, { ok: boolean; message: string }>>({})
   const [advancedOpen, setAdvancedOpen] = useState(false)
+
+  const sortedSources = useMemo(() => sortSourcesRecentFirst(sources), [sources])
 
   const selectedPropertyTypes = (redfinParams.uipt ?? '')
     .split(',')
@@ -95,15 +122,6 @@ export default function Scrapers() {
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false))
   }, [])
-
-  const toggleWebsite = (id: WebsiteId) => {
-    setSelectedWebsites((prev) => {
-      const next = new Set(prev)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
-      return next
-    })
-  }
 
   const addRedfin = async () => {
     setError('')
@@ -154,6 +172,11 @@ export default function Scrapers() {
       await removeScraper(id)
       setSuccess('Source removed.')
       setSources(await getScrapers())
+      setLastTestById((m) => {
+        const next = { ...m }
+        delete next[id]
+        return next
+      })
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to remove')
     }
@@ -161,63 +184,142 @@ export default function Scrapers() {
 
   const test = async (source: ScraperSource) => {
     setError('')
-    setTestResult(null)
     setTestingId(source.id)
     try {
       const result = await testScraperById(source.id)
       if (result.ok && result.type && result.count != null) {
-        setTestResult({
-          id: source.id,
-          message: `${result.type === 'redfin' ? 'Redfin' : 'RSS'}: ${result.count} listing(s)`,
-        })
+        const msg = `${result.type === 'redfin' ? 'Redfin' : 'RSS'}: ${result.count} listing(s)`
+        setLastTestById((m) => ({ ...m, [source.id]: { ok: true, message: msg } }))
       } else {
-        setTestResult({ id: source.id, message: result.error ?? 'Test failed' })
+        setLastTestById((m) => ({
+          ...m,
+          [source.id]: { ok: false, message: result.error ?? 'Test failed' },
+        }))
       }
     } catch (e) {
-      setTestResult({ id: source.id, message: e instanceof Error ? e.message : 'Test failed' })
+      setLastTestById((m) => ({
+        ...m,
+        [source.id]: { ok: false, message: e instanceof Error ? e.message : 'Test failed' },
+      }))
     } finally {
       setTestingId(null)
     }
   }
 
-  const websiteSources = sources.filter((s) => s.kind === 'redfin')
-  const rssSources = sources.filter((s) => s.kind === 'rss')
+  const statusDotClass = (id: number) => {
+    if (testingId === id) return 'scrapers-status-dot scrapers-status-dot-pending'
+    const t = lastTestById[id]
+    if (!t) return 'scrapers-status-dot scrapers-status-dot-unknown'
+    return t.ok ? 'scrapers-status-dot scrapers-status-dot-ok' : 'scrapers-status-dot scrapers-status-dot-fail'
+  }
 
   if (loading) return <p>Loading...</p>
 
   return (
     <>
       <h1>Scrapers</h1>
-      <p>Build your list of data sources. Configure website sources (e.g. Redfin) with params, or add RSS feed URLs.</p>
+      <p className="scrapers-lede">
+        Data sources used by the pipeline. Test sparingly—hitting a feed too often can get you blocked.
+      </p>
 
-      {/* Websites section — first */}
-      <section style={{ marginBottom: '1.5rem' }}>
-        <h2 style={{ fontSize: '1.1rem', marginBottom: '0.5rem' }}>Websites</h2>
-        <div className="form-group" style={{ marginBottom: '0.75rem' }}>
-          <label style={{ marginBottom: '0.35rem', display: 'block' }}>Select websites</label>
-          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-            {WEBSITE_OPTIONS.map((id) => (
-              <button
-                key={id}
-                type="button"
-                onClick={() => toggleWebsite(id)}
-                style={{
-                  padding: '0.4rem 0.75rem',
-                  borderRadius: 4,
-                  border: '1px solid #ccc',
-                  background: selectedWebsites.has(id) ? '#0066cc' : '#f5f5f5',
-                  color: selectedWebsites.has(id) ? '#fff' : '#333',
-                  fontWeight: selectedWebsites.has(id) ? 600 : 400,
-                }}
-              >
-                {id}
-              </button>
-            ))}
-          </div>
+      <section className="scrapers-section" aria-labelledby="scrapers-active-heading">
+        <h2 id="scrapers-active-heading" className="scrapers-section-title">
+          Active sources
+        </h2>
+        {sortedSources.length === 0 ? (
+          <p className="scrapers-empty">No sources configured yet. Add an RSS feed or a Redfin region below.</p>
+        ) : (
+          <ul className="scrapers-active-list">
+            {sortedSources.map((s) => {
+              const testInfo = lastTestById[s.id]
+              const isRss = s.kind === 'rss'
+              return (
+                <li key={s.id} className="scrapers-row">
+                  <div className="scrapers-row-main">
+                    <span className={statusDotClass(s.id)} title={testingId === s.id ? 'Testing…' : testInfo ? (testInfo.ok ? 'Last test passed' : 'Last test failed') : 'Not tested yet'} aria-hidden />
+                    <span className={isRss ? 'scrapers-badge scrapers-badge-rss' : 'scrapers-badge scrapers-badge-redfin'}>
+                      {isRss ? 'RSS' : 'Redfin'}
+                    </span>
+                    <div className="scrapers-row-text">
+                      <div className="scrapers-row-title">{primaryLabel(s)}</div>
+                      <div className="scrapers-row-meta">Added {formatWhen(s.created_at)}</div>
+                      {testInfo && (
+                        <div className={testInfo.ok ? 'scrapers-test-ok' : 'scrapers-test-fail'}>{testInfo.message}</div>
+                      )}
+                    </div>
+                  </div>
+                  <div className="scrapers-row-actions">
+                    <button
+                      type="button"
+                      className="secondary"
+                      onClick={() => test(s)}
+                      disabled={testingId !== null}
+                      title="Test sparingly (max ~1/hour per source)"
+                    >
+                      {testingId === s.id ? 'Testing…' : 'Test'}
+                    </button>
+                    <button type="button" className="secondary" onClick={() => remove(s.id)}>
+                      Remove
+                    </button>
+                  </div>
+                </li>
+              )
+            })}
+          </ul>
+        )}
+      </section>
+
+      <section className="scrapers-section" aria-labelledby="scrapers-add-heading">
+        <h2 id="scrapers-add-heading" className="scrapers-section-title">
+          Add source
+        </h2>
+        <div className="scrapers-type-tabs" role="tablist" aria-label="Source type">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={addKind === 'rss'}
+            className={addKind === 'rss' ? 'scrapers-tab scrapers-tab-active' : 'scrapers-tab'}
+            onClick={() => setAddKind('rss')}
+          >
+            RSS / Atom feed
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={addKind === 'redfin'}
+            className={addKind === 'redfin' ? 'scrapers-tab scrapers-tab-active' : 'scrapers-tab'}
+            onClick={() => setAddKind('redfin')}
+          >
+            Redfin region
+          </button>
         </div>
 
-        {selectedWebsites.has('Redfin') && (
-          <>
+        {addKind === 'rss' && (
+          <div className="scrapers-add-panel" role="tabpanel">
+            <p className="form-hint" style={{ marginTop: 0 }}>
+              Paste a full feed URL. Generic RSS and Atom feeds are supported.
+            </p>
+            <div className="form-group">
+              <label htmlFor="scrapers-new-rss-url">Feed URL</label>
+              <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                <input
+                  id="scrapers-new-rss-url"
+                  type="url"
+                  value={newUrl}
+                  onChange={(e) => setNewUrl(e.target.value)}
+                  placeholder="https://example.com/feed.xml"
+                  style={{ flex: 1, minWidth: '200px' }}
+                />
+                <button type="button" onClick={addRss}>
+                  Add feed
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {addKind === 'redfin' && (
+          <div className="scrapers-add-panel" role="tabpanel">
             <div className="form-group redfin-form-block">
               <label className="form-label-main">Location (region is resolved from URL)</label>
               <p className="form-hint">
@@ -400,97 +502,7 @@ export default function Scrapers() {
                 Add Redfin source
               </button>
             </div>
-            {websiteSources.length > 0 && (
-              <ul style={{ listStyle: 'none', padding: 0, margin: '1rem 0 0' }}>
-                {websiteSources.map((s) => (
-                  <li
-                    key={s.id}
-                    className="list-item"
-                    style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '0.5rem' }}
-                  >
-                    <span style={{ flex: 1, minWidth: 120 }}>{s.url || `Redfin (id ${s.id})`}</span>
-                    <button
-                      type="button"
-                      className="secondary"
-                      onClick={() => test(s)}
-                      disabled={testingId !== null}
-                      title="Test sparingly (max ~1/hour per source)"
-                    >
-                      {testingId === s.id ? 'Testing…' : 'Test'}
-                    </button>
-                    <button type="button" className="secondary" onClick={() => remove(s.id)}>
-                      Remove
-                    </button>
-                    {testResult?.id === s.id && (
-                      <span style={{ fontSize: '0.9rem', color: testResult.message.startsWith('Redfin') ? '#0a0' : '#c00' }}>
-                        {testResult.message}
-                      </span>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            )}
-          </>
-        )}
-      </section>
-
-      {/* RSS Feeds section — second */}
-      <section style={{ marginBottom: '1.5rem' }}>
-        <h2 style={{ fontSize: '1.1rem', marginBottom: '0.5rem' }}>RSS Feeds</h2>
-        <p className="form-group" style={{ color: '#666', fontSize: '0.9rem', marginBottom: '0.5rem' }}>
-          Testing a source more than once per hour can result in your feed being flagged and blocked. Use Test sparingly.
-        </p>
-        <div className="form-group">
-          <label>Add feed URL</label>
-          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-            <input
-              type="url"
-              value={newUrl}
-              onChange={(e) => setNewUrl(e.target.value)}
-              placeholder="https://example.com/feed.xml"
-              style={{ flex: 1, minWidth: '200px' }}
-            />
-            <button type="button" onClick={addRss}>
-              Add
-            </button>
           </div>
-        </div>
-        {rssSources.length > 0 ? (
-          <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
-            {rssSources.map((s) => (
-              <li
-                key={s.id}
-                className="list-item"
-                style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '0.5rem' }}
-              >
-                <input
-                  type="text"
-                  value={s.url}
-                  readOnly
-                  style={{ flex: 1, minWidth: 180, background: '#f9f9f9', fontFamily: 'monospace', fontSize: '0.85rem' }}
-                />
-                <button
-                  type="button"
-                  className="secondary"
-                  onClick={() => test(s)}
-                  disabled={testingId !== null}
-                  title="Test sparingly (max ~1/hour per source)"
-                >
-                  {testingId === s.id ? 'Testing…' : 'Test'}
-                </button>
-                <button type="button" className="secondary" onClick={() => remove(s.id)}>
-                  Remove
-                </button>
-                {testResult?.id === s.id && (
-                  <span style={{ fontSize: '0.9rem', color: testResult.message.startsWith('RSS') ? '#0a0' : '#c00' }}>
-                    {testResult.message}
-                  </span>
-                )}
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p style={{ color: '#666', fontSize: '0.9rem' }}>No RSS feeds yet. Add a feed URL above.</p>
         )}
       </section>
 
