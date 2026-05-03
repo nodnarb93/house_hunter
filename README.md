@@ -49,6 +49,20 @@ npm run scrape
 
 Use your OS scheduler to invoke that command on whatever cadence you want, or rely on the in-process scheduler when `npm start` or `npm run server:dev` is running.
 
+### Always-on with PM2
+
+[PM2](https://pm2.keymetrics.io/) is a dev dependency. Build the SPA once, then start the server under PM2 (port **3001** is set in `ecosystem.config.cjs` so an ambient `PORT` such as `3100` does not override it).
+
+```bash
+npm run build
+npm run pm2:start   # npx tsx server/index.ts
+npm run pm2:status
+npm run pm2:logs
+npm run pm2:stop
+```
+
+Optional: `pm2 save` and `pm2 startup` so processes survive reboot (see PM2 docs). Set `DATABASE_PATH` or `DISABLE_SCHEDULED_SCRAPES` in `ecosystem.config.cjs` `env` or via `pm2 start … --update-env` if needed.
+
 **Environment**
 
 | Variable | Purpose |

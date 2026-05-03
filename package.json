@@ -11,7 +11,11 @@
     "server:dev": "tsx watch server/index.ts",
     "scrape": "tsx server/scrape.ts",
     "test": "playwright test",
-    "test:list": "playwright test --reporter=list"
+    "test:list": "playwright test --reporter=list",
+    "pm2:start": "pm2 start ecosystem.config.cjs",
+    "pm2:stop": "pm2 stop house-hunter",
+    "pm2:logs": "pm2 logs house-hunter",
+    "pm2:status": "pm2 status"
   },
   "dependencies": {
     "@hono/node-server": "^2.0.0",
@@ -29,6 +33,7 @@
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
     "@vitejs/plugin-react": "^4.3.3",
+    "pm2": "^7.0.1",
     "tsx": "^4.21.0",
     "typescript": "^5.6.3",
     "vite": "^5.4.10"
