@@ -49,6 +49,16 @@ npm run scrape
 
 Use your OS scheduler to invoke that command on whatever cadence you want, or rely on the in-process scheduler when `npm start` or `npm run server:dev` is running.
 
+### Always-on with PM2
+
+[PM2](https://pm2.keymetrics.io/) keeps the app running across crashes and can register with your init system so it starts on boot.
+
+1. Install PM2 globally (`npm install -g pm2`) or invoke it with `npx pm2`.
+2. From the repo root: `pm2 start ecosystem.config.cjs` (or `npm run pm2:start` if `pm2` is on your `PATH`).
+3. Optional: `pm2 save` and `pm2 startup` so the process list is restored after reboot (see PM2’s startup guide for your OS).
+
+The ecosystem file runs `npm start` (production build + Node server on port **3001** by default). Override `PORT`, `DATABASE_PATH`, or `DISABLE_SCHEDULED_SCRAPES` in the environment before starting, or edit `ecosystem.config.cjs` `env` / use `pm2 start … --update-env`.
+
 **Environment**
 
 | Variable | Purpose |
