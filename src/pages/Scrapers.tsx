@@ -22,6 +22,8 @@ const defaultRedfinParams: RedfinParams = {
 
 type SelectedSourceType = 'rss' | 'redfin' | null
 
+type TestOutput = { ok: boolean; count?: number; message?: string } | null
+
 function sortSourcesRecentFirst(list: ScraperSource[]): ScraperSource[] {
   return [...list].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
 }
@@ -73,6 +75,7 @@ export default function Scrapers() {
   const [newUrl, setNewUrl] = useState('')
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
+  const [testOutput, setTestOutput] = useState<TestOutput>(null)
   const [testingId, setTestingId] = useState<number | null>(null)
 
   const sortedSources = useMemo(() => sortSourcesRecentFirst(sources), [sources])
@@ -166,24 +169,32 @@ export default function Scrapers() {
   }
 
   const test = async (source: ScraperSource) => {
+    setTestOutput(null)
     setError('')
-    setSuccess('')
     setTestingId(source.id)
+    let testOk = false
     try {
       const result = await testScraperById(source.id)
+      testOk = result.ok
       if (result.ok) {
-        setSuccess(`Test passed — ${result.count ?? 0} listing(s) found`)
+        setTestOutput({ ok: true, count: result.count ?? 0 })
       } else {
-        setError(result.error ?? 'Test failed')
+        setTestOutput({ ok: false, message: result.error ?? 'Test failed' })
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Test failed')
+      setTestOutput({ ok: false, message: e instanceof Error ? e.message : 'Test failed' })
     } finally {
       setTestingId(null)
+      const now = new Date().toISOString()
+      setSources((prev) =>
+        prev.map((s) =>
+          s.id === source.id ? { ...s, last_tested_at: now, last_test_ok: testOk ? 1 : 0 } : s,
+        ),
+      )
       try {
         setSources(await getScrapers())
       } catch {
-        /* ignore refresh errors */
+        /* optimistic update above covers the UI */
       }
     }
   }
@@ -243,6 +254,26 @@ export default function Scrapers() {
           </ul>
         )}
       </section>
+
+      {(testingId !== null || testOutput !== null) && (
+        <section className="scrapers-section" aria-label="Test output">
+          <h2 className="scrapers-section-title">Test Output</h2>
+          <div className="scrapers-terminal">
+            {testingId !== null && (
+              <span className="scrapers-terminal-line scrapers-terminal-pending">Running test…</span>
+            )}
+            {testOutput !== null && testingId === null && (
+              <span
+                className={`scrapers-terminal-line ${testOutput.ok ? 'scrapers-terminal-ok' : 'scrapers-terminal-err'}`}
+              >
+                {testOutput.ok
+                  ? `▶ Test passed — ${testOutput.count ?? 0} listing(s) found`
+                  : `✗ Test failed: ${testOutput.message ?? 'Unknown error'}`}
+              </span>
+            )}
+          </div>
+        </section>
+      )}
 
       <section className="scrapers-section" aria-labelledby="scrapers-add-heading">
         <h2 id="scrapers-add-heading" className="scrapers-section-title">

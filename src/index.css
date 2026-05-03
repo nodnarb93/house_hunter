@@ -258,3 +258,33 @@ button.secondary:hover {
 .scrapers-add-panel {
   padding-top: 0.25rem;
 }
+
+.scrapers-terminal {
+  font-family: ui-monospace, 'Cascadia Code', 'Source Code Pro', Menlo, Consolas, monospace;
+  font-size: 0.85rem;
+  line-height: 1.45;
+  padding: 0.75rem 1rem;
+  border-radius: 6px;
+  background: #1e1e1e;
+  color: #d4d4d4;
+  border: 1px solid #333;
+  min-height: 2.5rem;
+}
+
+.scrapers-terminal-line {
+  display: block;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.scrapers-terminal-pending {
+  color: #9cdcfe;
+}
+
+.scrapers-terminal-ok {
+  color: #6a9955;
+}
+
+.scrapers-terminal-err {
+  color: #f14c4c;
+}
