@@ -140,3 +140,171 @@ button.secondary:hover {
 .runs-list a {
   color: #0066cc;
 }
+
+/* Scrapers page */
+.scrapers-lede {
+  color: #444;
+  margin: 0 0 1.25rem;
+  font-size: 0.95rem;
+}
+
+.scrapers-section {
+  margin-bottom: 1.75rem;
+}
+
+.scrapers-section-title {
+  font-size: 1.1rem;
+  margin: 0 0 0.65rem;
+  font-weight: 600;
+}
+
+.scrapers-empty {
+  color: #666;
+  font-size: 0.95rem;
+  margin: 0;
+  padding: 0.75rem 0;
+}
+
+.scrapers-active-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.scrapers-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.85rem 0.9rem;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  margin-bottom: 0.5rem;
+  background: #fff;
+}
+
+.scrapers-row-main {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.55rem;
+  flex: 1;
+  min-width: 0;
+}
+
+.scrapers-row-text {
+  min-width: 0;
+  flex: 1;
+}
+
+.scrapers-row-title {
+  font-weight: 500;
+  word-break: break-word;
+  font-size: 0.95rem;
+}
+
+.scrapers-row-meta {
+  font-size: 0.8rem;
+  color: #666;
+  margin-top: 0.2rem;
+}
+
+.scrapers-row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  align-items: center;
+}
+
+.scrapers-badge {
+  flex-shrink: 0;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  padding: 0.2rem 0.45rem;
+  border-radius: 999px;
+  line-height: 1.2;
+}
+
+.scrapers-badge-rss {
+  background: #e8f0fe;
+  color: #174ea6;
+}
+
+.scrapers-badge-redfin {
+  background: #fde7e9;
+  color: #8b1538;
+}
+
+.scrapers-status-dot {
+  flex-shrink: 0;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  margin-top: 0.35rem;
+}
+
+.scrapers-status-dot-unknown {
+  background: #fa0;
+}
+
+.scrapers-status-dot-ok {
+  background: #1a7f37;
+}
+
+.scrapers-status-dot-fail {
+  background: #c00;
+}
+
+.scrapers-status-dot-pending {
+  background: #888;
+  animation: scrapers-pulse 1s ease-in-out infinite;
+}
+
+@keyframes scrapers-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
+.scrapers-type-tabs {
+  display: flex;
+  gap: 0.35rem;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+}
+
+.scrapers-tab {
+  padding: 0.45rem 0.85rem;
+  border-radius: 6px;
+  border: 1px solid #ccc;
+  background: #f0f0f0;
+  color: #333;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.scrapers-tab:hover {
+  background: #e5e5e5;
+}
+
+.scrapers-tab-active {
+  background: #0066cc;
+  color: #fff;
+  border-color: #0066cc;
+  font-weight: 600;
+}
+
+.scrapers-tab-active:hover {
+  background: #0052a3;
+  border-color: #0052a3;
+}
+
+.scrapers-add-panel {
+  padding-top: 0.25rem;
+}
