@@ -90,6 +90,8 @@ export interface ScraperSource {
   url: string
   config_json: string | null
   created_at: string
+  last_tested_at: string | null
+  last_test_ok: number | null
 }
 
 export interface RedfinParams {

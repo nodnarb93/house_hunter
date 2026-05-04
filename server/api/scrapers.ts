@@ -8,6 +8,13 @@ export interface ScraperSourceRow {
   url: string
   config_json: string | null
   created_at: string
+  last_tested_at: string | null
+  last_test_ok: number | null
+}
+
+async function persistScraperTestResult(env: Env, sourceId: number, testOk: 0 | 1): Promise<void> {
+  const now = new Date().toISOString()
+  await env.DB.prepare('UPDATE scraper_sources SET last_tested_at = ?, last_test_ok = ? WHERE id = ?').bind(now, testOk, sourceId).run()
 }
 
 export async function handleScrapers(request: Request, env: Env): Promise<Response> {
@@ -36,14 +43,19 @@ export async function handleScrapers(request: Request, env: Env): Promise<Respon
     const inputUrl = typeof body?.url === 'string' ? body.url.trim() : ''
 
     if (sourceId != null) {
-      const row = await env.DB.prepare('SELECT id, kind, url, config_json FROM scraper_sources WHERE id = ?').bind(sourceId).first<ScraperSourceRow>()
+      const row = await env.DB
+        .prepare('SELECT id, kind, url, config_json, last_tested_at, last_test_ok FROM scraper_sources WHERE id = ?')
+        .bind(sourceId)
+        .first<ScraperSourceRow>()
       if (!row) return Response.json({ ok: false, error: 'Source not found' }, { status: 404 })
       if (row.kind === 'redfin' && row.config_json) {
         try {
           const params = JSON.parse(row.config_json) as { region_id: number; region_type: number; market: string; [k: string]: unknown }
           const count = await fetchRedfinGisCsvCount(params)
+          await persistScraperTestResult(env, sourceId, 1)
           return Response.json({ ok: true, type: 'redfin', count })
         } catch (e) {
+          await persistScraperTestResult(env, sourceId, 0)
           const message = e instanceof Error ? e.message : 'Redfin request failed'
           return Response.json({ ok: false, type: 'redfin', error: message }, { status: 502 })
         }
@@ -51,8 +63,10 @@ export async function handleScrapers(request: Request, env: Env): Promise<Respon
       if (row.kind === 'rss' && row.url) {
         try {
           const entries = await fetchAndParse(row.url)
+          await persistScraperTestResult(env, sourceId, 1)
           return Response.json({ ok: true, type: 'rss', count: entries.length })
         } catch (e) {
+          await persistScraperTestResult(env, sourceId, 0)
           const message = e instanceof Error ? e.message : 'RSS fetch failed'
           return Response.json({ ok: false, type: 'rss', error: message }, { status: 502 })
         }
@@ -85,7 +99,11 @@ export async function handleScrapers(request: Request, env: Env): Promise<Respon
 
   if (pathname === '/api/scrapers') {
     if (request.method === 'GET') {
-      const rows = await env.DB.prepare('SELECT id, kind, url, config_json, created_at FROM scraper_sources ORDER BY created_at ASC').all<ScraperSourceRow>()
+      const rows = await env.DB
+        .prepare(
+          'SELECT id, kind, url, config_json, created_at, last_tested_at, last_test_ok FROM scraper_sources ORDER BY created_at ASC'
+        )
+        .all<ScraperSourceRow>()
       return Response.json(rows.results ?? [])
     }
 
@@ -153,7 +171,9 @@ export async function handleScrapers(request: Request, env: Env): Promise<Respon
 
       const r = await env.DB.prepare('INSERT INTO scraper_sources (kind, url, config_json) VALUES (?, ?, ?)').bind(kind, url, config_json).run()
       const row = await env.DB
-        .prepare('SELECT id, kind, url, config_json, created_at FROM scraper_sources WHERE id = ?')
+        .prepare(
+          'SELECT id, kind, url, config_json, created_at, last_tested_at, last_test_ok FROM scraper_sources WHERE id = ?'
+        )
         .bind(r.meta.last_row_id)
         .first<ScraperSourceRow>()
       return Response.json(row ?? { id: r.meta.last_row_id, kind, url, config_json, created_at: new Date().toISOString() })
