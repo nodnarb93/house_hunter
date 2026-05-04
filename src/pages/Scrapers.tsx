@@ -191,11 +191,6 @@ export default function Scrapers() {
           s.id === source.id ? { ...s, last_tested_at: now, last_test_ok: testOk ? 1 : 0 } : s,
         ),
       )
-      try {
-        setSources(await getScrapers())
-      } catch {
-        /* optimistic update above covers the UI */
-      }
     }
   }
 
