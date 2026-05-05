@@ -1,21 +1,10 @@
 import type { Env } from '../types'
 
-export async function handleSchedule(request: Request, env: Env): Promise<Response> {
-  if (request.method === 'GET') {
-    const row = await env.DB.prepare('SELECT id, interval_hours, active, updated_at FROM schedule WHERE id = 1').first()
-    if (!row) return Response.json({ interval_hours: 6, active: 1, updated_at: null })
-    return Response.json(row)
-  }
-  if (request.method === 'PUT') {
-    const body = (await request.json()) as { interval_hours?: number; active?: number }
-    const interval = body.interval_hours ?? 6
-    const active = body.active ?? 1
-    const updated = new Date().toISOString()
-    await env.DB
-      .prepare('UPDATE schedule SET interval_hours = ?, active = ?, updated_at = ? WHERE id = 1')
-      .bind(interval, active, updated)
-      .run()
-    return Response.json({ interval_hours: interval, active, updated_at: updated })
-  }
-  return new Response('Method not allowed', { status: 405 })
+export async function handleSchedule(_request: Request, _env: Env): Promise<Response> {
+  return Response.json(
+    {
+      error: 'Global schedule endpoint removed — use PUT /api/scrapers/:id to set per-scraper time slots.',
+    },
+    { status: 410 }
+  )
 }

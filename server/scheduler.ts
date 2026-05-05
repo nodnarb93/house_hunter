@@ -1,41 +1,120 @@
 import cron from 'node-cron'
 import type { AppDatabase } from './db/app-database'
-import { runAllPresets } from './pipeline'
+import type { FeedEntry } from './types'
+import { fetchAndParse } from './scrapers/rssAdapter'
+import { fetchRedfinGisCsvCount, type RedfinParams } from './scrapers/redfinAdapter'
+
+export interface ScraperScheduleRow {
+  id: number
+  kind: string
+  url: string
+  config_json: string | null
+  schedule_slots: string | null
+  last_run_at: string | null
+}
+
+function parseScheduleSlots(raw: string | null): string[] {
+  if (raw == null || raw === '') return []
+  try {
+    const parsed = JSON.parse(raw) as unknown
+    if (!Array.isArray(parsed)) return []
+    return parsed.map((v) => String(v))
+  } catch {
+    return []
+  }
+}
+
+function currentLocalHHMM(): string {
+  const now = new Date()
+  const hh = String(now.getHours()).padStart(2, '0')
+  const mm = String(now.getMinutes()).padStart(2, '0')
+  return `${hh}:${mm}`
+}
+
+function extractFirstPriceCents(entry: FeedEntry): number | null {
+  const text = `${entry.title} ${entry.description}`.toLowerCase()
+  const priceRe = /\$?\s*([\d,]+)/
+  const match = priceRe.exec(text)
+  if (!match) return null
+  const n = parseInt(match[1].replace(/,/g, ''), 10)
+  if (isNaN(n)) return null
+  return n * 100
+}
+
+const DEBOUNCE_MS = 25 * 60 * 1000
+
+function shouldRunNow(lastRunAt: string | null): boolean {
+  if (lastRunAt == null || lastRunAt === '') return true
+  const t = new Date(lastRunAt).getTime()
+  if (isNaN(t)) return true
+  return Date.now() - t >= DEBOUNCE_MS
+}
 
 /**
- * Runs the scraper pipeline on an interval derived from the `schedule` table
- * (same options as the Schedule UI). Uses node-cron with a once-per-minute
- * tick so interval and active flag changes apply without restarting the server.
+ * Runs a single scraper source: RSS ingests into `listings` with preset_id=null;
+ * Redfin logs GIS-CSV row count only.
+ */
+export async function runScraperSource(db: AppDatabase, row: ScraperScheduleRow): Promise<void> {
+  try {
+    if (row.kind === 'rss') {
+      const entries = await fetchAndParse(row.url)
+      const finishedAt = new Date().toISOString()
+      const listingInsert = db.prepare(
+        'INSERT OR IGNORE INTO listings (preset_id, run_id, title, link, price_cents, address, scraped_at) VALUES (?, ?, ?, ?, ?, ?, ?)'
+      )
+      for (const e of entries) {
+        const priceCents = extractFirstPriceCents(e)
+        await listingInsert.bind(null, null, e.title, e.link, priceCents, null, finishedAt).run()
+      }
+    } else if (row.kind === 'redfin') {
+      let params: RedfinParams
+      try {
+        params = JSON.parse(row.config_json ?? '{}') as RedfinParams
+      } catch {
+        console.error(`Scheduled Redfin scrape ${row.id}: invalid config_json (not JSON)`)
+        return
+      }
+      if (
+        typeof params.region_id !== 'number' ||
+        typeof params.region_type !== 'number' ||
+        typeof params.market !== 'string' ||
+        !params.market
+      ) {
+        console.error(`Scheduled Redfin scrape ${row.id}: missing region_id, region_type, or market in config`)
+        return
+      }
+      const count = await fetchRedfinGisCsvCount(params)
+      console.log(`Scheduled Redfin scrape for scraper ${row.id}: count=${count}`)
+    }
+  } catch (err) {
+    console.error(`runScraperSource failed for scraper ${row.id}:`, err)
+  }
+}
+
+/**
+ * Per-scraper slot cron: every minute, runs scrapers whose `schedule_slots` contain
+ * the current local HH:MM, respecting a 25-minute debounce via `last_run_at`.
  */
 export function startScheduledScrapes(db: AppDatabase): void {
-  let lastRunAt = Date.now()
-  let running = false
-
   const tick = async () => {
-    if (running) return
-    try {
-      const row = await db
-        .prepare('SELECT interval_hours, active FROM schedule WHERE id = 1')
-        .first<{ interval_hours: number; active: number }>()
-      const intervalHours = row?.interval_hours ?? 6
-      const active = row?.active ?? 1
-      if (!active) return
-
-      const intervalMs = intervalHours * 60 * 60 * 1000
-      if (Date.now() - lastRunAt < intervalMs) return
-
-      running = true
-      await runAllPresets(db)
-      lastRunAt = Date.now()
-    } catch (err) {
-      console.error('Scheduled scrape failed:', err)
-    } finally {
-      running = false
+    const hhmm = currentLocalHHMM()
+    const rows = await db
+      .prepare(
+        'SELECT id, kind, url, config_json, schedule_slots, last_run_at FROM scraper_sources'
+      )
+      .all<ScraperScheduleRow>()
+    for (const row of rows.results ?? []) {
+      const slots = parseScheduleSlots(row.schedule_slots)
+      if (!slots.includes(hhmm)) continue
+      if (!shouldRunNow(row.last_run_at)) continue
+      await runScraperSource(db, row)
+      const nowIso = new Date().toISOString()
+      await db.prepare('UPDATE scraper_sources SET last_run_at = ? WHERE id = ?').bind(nowIso, row.id).run()
     }
   }
 
   cron.schedule('* * * * *', () => {
-    void tick()
+    void tick().catch((err) => console.error('Scheduled scrape tick failed:', err))
   })
-  console.log('Scheduled scrapes enabled (node-cron; respects schedule table).')
+  console.log('Scheduled scrapes enabled (node-cron; per-scraper schedule_slots).')
 }
