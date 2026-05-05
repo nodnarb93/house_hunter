@@ -297,7 +297,7 @@ function ScraperSourceTypeDropdown({
 
 function ScheduleOverview({ sources }: { sources: ScraperSource[] }) {
   return (
-    <section className="mt-8" data-testid="schedule-overview" aria-labelledby="schedule-overview-heading">
+    <section className="mt-8 max-w-full" data-testid="schedule-overview" aria-labelledby="schedule-overview-heading">
       <h2 id="schedule-overview-heading" className="text-sm font-semibold text-zinc-300">
         Schedule Overview
       </h2>
