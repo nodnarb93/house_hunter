@@ -1,6 +1,9 @@
 import { useEffect, useState } from 'react'
 import { getRuns, type RunRow } from '../api'
 
+const btnSecondary =
+  'rounded-md bg-zinc-800 px-3 py-1.5 text-sm text-white hover:bg-zinc-700 disabled:cursor-not-allowed disabled:opacity-50'
+
 function parseSummary(summary: string | null): { title?: string; link?: string }[] {
   if (!summary) return []
   try {
@@ -24,40 +27,39 @@ export default function Runs() {
       .finally(() => setLoading(false))
   }, [])
 
-  if (loading) return <p>Loading...</p>
-  if (error) return <p className="error">{error}</p>
+  if (loading) return <p className="text-zinc-400">Loading…</p>
+  if (error) return <p className="text-sm text-red-400">{error}</p>
 
   return (
     <>
-      <h1>Last runs</h1>
-      <p>Recent pipeline runs. Expand a row to see the filtered results (titles and links).</p>
+      <h1 className="text-xl font-semibold text-white">Last runs</h1>
+      <p className="mt-1 max-w-2xl text-sm text-zinc-400">
+        Recent pipeline runs. Expand a row to see the filtered results (titles and links).
+      </p>
       {runs.length === 0 ? (
-        <p>No runs yet. Create a filter preset and run it from the Filters page.</p>
+        <p className="mt-4 text-sm text-zinc-500">No runs yet. Create a filter preset and run it from the Filters page.</p>
       ) : (
-        <div className="runs-list">
+        <div className="mt-6 space-y-3">
           {runs.map((r) => {
             const results = parseSummary(r.result_summary)
             const isExpanded = expandedId === r.id
             return (
-              <div key={r.id} className="list-item">
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
-                  <div>
-                    <strong>Run #{r.id}</strong> — {r.feed_url.slice(0, 50)}{r.feed_url.length > 50 ? '…' : ''}
+              <div key={r.id} className="rounded-md border border-white/10 bg-zinc-900 p-4">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="min-w-0 text-sm text-zinc-300">
+                    <strong className="text-white">Run #{r.id}</strong> — {r.feed_url.slice(0, 50)}
+                    {r.feed_url.length > 50 ? '…' : ''}
                     <br />
-                    <small>
+                    <span className="text-xs text-zinc-500">
                       {new Date(r.started_at).toLocaleString()} · fetched {r.total_fetched}, passed {r.passed_filter_count}
-                    </small>
+                    </span>
                   </div>
-                  <button
-                    type="button"
-                    className="secondary"
-                    onClick={() => setExpandedId(isExpanded ? null : r.id)}
-                  >
+                  <button type="button" className={btnSecondary} onClick={() => setExpandedId(isExpanded ? null : r.id)}>
                     {isExpanded ? 'Hide' : 'Show'} results
                   </button>
                 </div>
                 {isExpanded && results.length > 0 && (
-                  <ul style={{ marginTop: '0.75rem', paddingLeft: '1.25rem' }}>
+                  <ul className="mt-3 list-disc space-y-1 pl-5 text-sm text-zinc-300">
                     {results.map((item, i) => (
                       <li key={i}>
                         {item.link ? (
@@ -72,7 +74,7 @@ export default function Runs() {
                   </ul>
                 )}
                 {isExpanded && results.length === 0 && (
-                  <p style={{ marginTop: '0.5rem', color: '#666' }}>No matching listings in this run.</p>
+                  <p className="mt-3 text-sm text-zinc-500">No matching listings in this run.</p>
                 )}
               </div>
             )
