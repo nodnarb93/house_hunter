@@ -26,6 +26,7 @@ test('scrapers page: schedule overview, slot picker with 48 options, taken slot 
     await page.goto('/scrapers')
     await expect(page.getByTestId('schedule-overview')).toBeVisible()
 
+    await page.getByTestId('scrapers-active-toggle').click()
     await page.getByTestId(`scraper-edit-${scraperB.id}`).click()
     const picker = page.getByTestId('scraper-slot-picker')
     await expect(picker).toBeVisible()
