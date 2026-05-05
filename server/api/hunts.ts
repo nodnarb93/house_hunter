@@ -1,4 +1,5 @@
 import type { Env } from '../types'
+import { buildHuntFilterWhereClause, type FilterState } from '../huntFilters'
 
 interface HouseHuntRow {
   id: number
@@ -33,18 +34,6 @@ const FILTER_COLS = [
   'keywords_exclude',
   'location_text',
 ] as const
-
-type FilterCol = (typeof FILTER_COLS)[number]
-
-type FilterState = {
-  min_price: number | null
-  max_price: number | null
-  min_beds: number | null
-  min_baths: number | null
-  keywords: string | null
-  keywords_exclude: string | null
-  location_text: string | null
-}
 
 function emptyFilters(): FilterState {
   return {
@@ -122,59 +111,14 @@ async function buildHuntDetail(env: Env, huntId: number, hunt: HouseHuntRow | nu
   }
 }
 
-function splitCommaKeywords(raw: string | null): string[] {
-  if (raw == null || raw.trim() === '') return []
-  return raw
-    .split(',')
-    .map((s) => s.trim())
-    .filter(Boolean)
-}
-
 async function queryHuntResults(env: Env, huntId: number): Promise<Response> {
   const hunt = await env.DB.prepare('SELECT id FROM house_hunts WHERE id = ?').bind(huntId).first<{ id: number }>()
   if (!hunt) return Response.json({ error: 'Not found' }, { status: 404 })
 
   const f = await loadFilterState(env, huntId)
-  const conditions: string[] = ['1 = 1']
-  const params: unknown[] = []
+  const { clause, params } = buildHuntFilterWhereClause(f)
 
-  if (f.min_price != null) {
-    conditions.push('(price_cents IS NOT NULL AND price_cents >= ?)')
-    params.push(f.min_price * 100)
-  }
-  if (f.max_price != null) {
-    conditions.push('(price_cents IS NOT NULL AND price_cents <= ?)')
-    params.push(f.max_price * 100)
-  }
-  if (f.min_beds != null) {
-    conditions.push('(beds IS NOT NULL AND beds >= ?)')
-    params.push(f.min_beds)
-  }
-  if (f.min_baths != null) {
-    conditions.push('(baths IS NOT NULL AND baths >= ?)')
-    params.push(f.min_baths)
-  }
-
-  for (const kw of splitCommaKeywords(f.keywords)) {
-    conditions.push('((title LIKE ? COLLATE NOCASE) OR (address LIKE ? COLLATE NOCASE))')
-    const p = `%${kw}%`
-    params.push(p, p)
-  }
-
-  if (f.location_text != null && f.location_text.trim() !== '') {
-    conditions.push('(address LIKE ? COLLATE NOCASE)')
-    params.push(`%${f.location_text.trim()}%`)
-  }
-
-  for (const ex of splitCommaKeywords(f.keywords_exclude)) {
-    conditions.push('NOT (((title LIKE ? COLLATE NOCASE) OR (address LIKE ? COLLATE NOCASE)))')
-    const p = `%${ex}%`
-    params.push(p, p)
-  }
-
-  const sql = `SELECT id, title, link, price_cents, address, beds, baths, image_url, scraped_at FROM listings WHERE ${conditions.join(
-    ' AND '
-  )} ORDER BY scraped_at DESC`
+  const sql = `SELECT id, title, link, price_cents, address, beds, baths, image_url, scraped_at FROM listings WHERE ${clause} ORDER BY scraped_at DESC`
   const rows = await env.DB.prepare(sql).bind(...params).all<{
     id: number
     title: string

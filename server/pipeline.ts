@@ -1,4 +1,5 @@
 import type { AppDatabase } from './db/app-database'
+import { getListingIdsByScrapedAt, notifyHuntsForNewListings } from './huntNotifications'
 import type { FilterConfig, FeedEntry } from './types'
 import { fetchAndParse } from './scrapers/rssAdapter'
 
@@ -100,6 +101,8 @@ export async function runPipeline(
       const priceCents = extractFirstPriceCents(e)
       await listingInsert.bind(presetId, runId, e.title, e.link, priceCents, null, finishedAt).run()
     }
+    const newListingIds = await getListingIdsByScrapedAt(db, finishedAt, presetId)
+    await notifyHuntsForNewListings(db, newListingIds)
     runResults.push({
       runId,
       passed: passed.length,

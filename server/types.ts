@@ -61,3 +61,22 @@ export interface Listing {
 export interface Env {
   DB: AppDatabase
 }
+
+/** Payload for hunt webhook / Discord notifications (post-scrape). */
+export interface HuntNotificationListing {
+  id: number
+  title: string
+  link: string
+  price_cents: number | null
+  address: string | null
+  beds: number | null
+  baths: number | null
+  image_url: string | null
+  scraped_at: string
+}
+
+export interface HuntMatchPayload {
+  hunt_id: number
+  hunt_name: string
+  matches: HuntNotificationListing[]
+}

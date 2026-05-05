@@ -10,6 +10,7 @@ export default defineConfig({
     env: {
       PORT: '3001',
       DISABLE_SCHEDULED_SCRAPES: '1',
+      PLAYWRIGHT_TEST: '1',
     },
   },
   projects: [

@@ -1,5 +1,6 @@
 import cron from 'node-cron'
 import type { AppDatabase } from './db/app-database'
+import { getListingIdsByScrapedAt, notifyHuntsForNewListings } from './huntNotifications'
 import type { FeedEntry } from './types'
 import { fetchAndParse } from './scrapers/rssAdapter'
 import { fetchRedfinGisCsvCount, type RedfinParams } from './scrapers/redfinAdapter'
@@ -66,6 +67,8 @@ export async function runScraperSource(db: AppDatabase, row: ScraperScheduleRow)
         const priceCents = extractFirstPriceCents(e)
         await listingInsert.bind(null, null, e.title, e.link, priceCents, null, finishedAt).run()
       }
+      const newListingIds = await getListingIdsByScrapedAt(db, finishedAt, null)
+      await notifyHuntsForNewListings(db, newListingIds)
     } else if (row.kind === 'redfin') {
       let params: RedfinParams
       try {
