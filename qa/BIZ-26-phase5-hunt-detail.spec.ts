@@ -128,6 +128,7 @@ test('Hunt detail page: sidebar navigation shows filter inputs; no console error
   await page.getByTestId(`hunt-link-${id}`).click()
   await expect(page).toHaveURL(new RegExp(`/hunts/${id}$`))
 
+  await page.getByTestId('open-config-drawer').click()
   await expect(page.getByTestId('hunt-detail-min-price')).toBeVisible()
   await expect(page.getByTestId('hunt-detail-max-price')).toBeVisible()
   await expect(page.getByTestId('hunt-detail-min-beds')).toBeVisible()
@@ -147,6 +148,7 @@ test('Hunt detail: save filters via UI; reload shows saved values', async ({ pag
   const { id } = (await post.json()) as { id: number }
 
   await page.goto(`/hunts/${id}`)
+  await page.getByTestId('open-config-drawer').click()
   await expect(page.getByTestId('hunt-detail-min-price')).toBeVisible()
 
   await page.getByTestId('hunt-detail-min-price').fill('250000')
@@ -164,6 +166,7 @@ test('Hunt detail: save filters via UI; reload shows saved values', async ({ pag
   await putFilters
 
   await page.reload()
+  await page.getByTestId('open-config-drawer').click()
   await expect(page.getByTestId('hunt-detail-min-price')).toHaveValue('250000')
   await expect(page.getByTestId('hunt-detail-max-price')).toHaveValue('600000')
   await expect(page.getByTestId('hunt-detail-min-beds')).toHaveValue('3')
@@ -183,6 +186,7 @@ test('Hunt detail: add notification via UI and save; row appears', async ({ page
   const { id } = (await post.json()) as { id: number }
 
   await page.goto(`/hunts/${id}`)
+  await page.getByTestId('open-config-drawer').click()
   const dest = `https://notify.example.com/${Date.now()}`
   await page.getByTestId('hunt-detail-notification-destination').fill(dest)
   await page.getByTestId('hunt-detail-add-notification').click()
