@@ -12,6 +12,7 @@ const STAGES = [
 interface ListingRow {
   id: number
   preset_id: number | null
+  hunt_id: number | null
   run_id: number | null
   title: string
   link: string
@@ -156,12 +157,12 @@ export default function Triage() {
                       onDragStart={(e) => onDragStart(e, l.id)}
                       className="flex cursor-grab flex-col rounded-md border border-white/10 bg-zinc-900 px-3 py-2 active:cursor-grabbing"
                     >
-                      {l.preset_id != null ? (
+                      {l.hunt_id != null ? (
                         <span
                           data-testid="hunt-name-badge"
                           className="mb-1 self-start rounded-full bg-zinc-100/10 px-2 py-0.5 text-xs text-zinc-400"
                         >
-                          {huntMap.get(l.preset_id) ?? 'Unknown Hunt'}
+                          {huntMap.get(l.hunt_id) ?? 'Unknown Hunt'}
                         </span>
                       ) : null}
                       <div className="line-clamp-1 text-sm font-medium text-white" title={l.title}>

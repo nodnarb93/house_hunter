@@ -44,6 +44,7 @@ export interface FeedEntry {
 export interface Listing {
   id: number
   preset_id: number | null
+  hunt_id: number | null
   run_id: number | null
   title: string
   link: string

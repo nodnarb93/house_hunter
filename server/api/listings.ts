@@ -55,7 +55,7 @@ export async function handleListings(request: Request, env: Env): Promise<Respon
     const listParams = [...params, limit, offset]
     const rows = await env.DB
       .prepare(
-        `SELECT id, preset_id, run_id, title, link, price_cents, address, beds, baths, image_url, scraped_at, seen, bookmarked, stage
+        `SELECT id, preset_id, hunt_id, run_id, title, link, price_cents, address, beds, baths, image_url, scraped_at, seen, bookmarked, stage
          FROM listings WHERE ${whereSql}
          ORDER BY scraped_at DESC
          LIMIT ? OFFSET ?`
@@ -102,7 +102,7 @@ export async function handleListings(request: Request, env: Env): Promise<Respon
 
     const row = await env.DB
       .prepare(
-        `SELECT id, preset_id, run_id, title, link, price_cents, address, beds, baths, image_url, scraped_at, seen, bookmarked, stage
+        `SELECT id, preset_id, hunt_id, run_id, title, link, price_cents, address, beds, baths, image_url, scraped_at, seen, bookmarked, stage
          FROM listings WHERE id = ?`
       )
       .bind(id)

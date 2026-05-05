@@ -78,7 +78,7 @@ test.describe('BIZ-44 dashboard refactor', () => {
     }
   })
 
-  test('triage board shows hunt name badge when preset_id matches a house hunt', async ({ page, request }) => {
+  test('triage board shows hunt name badge when hunt_id matches a house hunt', async ({ page, request }) => {
     const post = await request.post('/api/house-hunts', { data: { name: `BIZ44 Triage Hunt ${Date.now()}` } })
     expect(post.status()).toBe(201)
     const { id: huntId } = (await post.json()) as { id: number }
@@ -86,7 +86,7 @@ test.describe('BIZ-44 dashboard refactor', () => {
     try {
       const seed = await request.post('/api/test/seed-listing', {
         data: {
-          preset_id: huntId,
+          hunt_id: huntId,
           title: 'BIZ44 Triage Card',
           link: `https://example.invalid/biz44-triage-${Date.now()}`,
           price_cents: 400_000_00,
