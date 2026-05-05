@@ -16,8 +16,8 @@ test('design system: sidebar shell, navigation, no legacy top nav, scraper type 
   await page.getByRole('navigation', { name: 'Pipeline configuration' }).getByRole('link', { name: 'Scrapers' }).click()
   await expect(page.getByRole('heading', { level: 1, name: 'Scrapers' })).toBeVisible()
 
-  await page.getByRole('navigation', { name: 'Pipeline configuration' }).getByRole('link', { name: 'Filters' }).click()
-  await expect(page.getByRole('heading', { level: 1, name: 'Filter presets' })).toBeVisible()
+  await page.getByRole('navigation', { name: 'Pipeline configuration' }).getByRole('link', { name: 'System logs' }).click()
+  await expect(page.getByRole('heading', { level: 1, name: 'System logs' })).toBeVisible()
 
   await expect(page.locator('nav.nav')).toHaveCount(0)
 

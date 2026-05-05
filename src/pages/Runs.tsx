@@ -32,12 +32,14 @@ export default function Runs() {
 
   return (
     <>
-      <h1 className="text-xl font-semibold text-white">Last runs</h1>
+      <h1 className="text-xl font-semibold text-white">System logs</h1>
       <p className="mt-1 max-w-2xl text-sm text-zinc-400">
         Recent pipeline runs. Expand a row to see the filtered results (titles and links).
       </p>
       {runs.length === 0 ? (
-        <p className="mt-4 text-sm text-zinc-500">No runs yet. Create a filter preset and run it from the Filters page.</p>
+        <p className="mt-4 text-sm text-zinc-500">
+          No runs yet. Logs appear after scheduled scrapes complete or when you run <code className="text-zinc-400">npm run scrape</code> manually.
+        </p>
       ) : (
         <div className="mt-6 space-y-3">
           {runs.map((r) => {

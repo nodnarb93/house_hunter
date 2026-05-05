@@ -3,7 +3,6 @@ import { Routes, Route, Navigate, NavLink } from 'react-router-dom'
 import type { HouseHunt } from './api'
 import { getHouseHunts } from './api'
 import Scrapers from './pages/Scrapers'
-import Filters from './pages/Filters'
 import Settings from './pages/Settings'
 import Runs from './pages/Runs'
 import Results from './pages/Results'
@@ -71,14 +70,11 @@ export default function App() {
             <NavLink to="/scrapers" className={pipelineNavClass}>
               Scrapers
             </NavLink>
-            <NavLink to="/filters" className={pipelineNavClass}>
-              Filters
-            </NavLink>
             <NavLink to="/settings" className={pipelineNavClass}>
               Settings
             </NavLink>
             <NavLink to="/runs" className={pipelineNavClass}>
-              Last Runs
+              System logs
             </NavLink>
           </nav>
         </div>
@@ -97,7 +93,7 @@ export default function App() {
         <Routes>
           <Route path="/" element={<Navigate to="/scrapers" replace />} />
           <Route path="/scrapers" element={<Scrapers />} />
-          <Route path="/filters" element={<Filters />} />
+          <Route path="/filters" element={<Navigate to="/scrapers" replace />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="/runs" element={<Runs />} />
           <Route path="/results" element={<Results />} />
