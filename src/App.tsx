@@ -1,13 +1,16 @@
-import { useEffect, useState } from 'react'
-import { Routes, Route, Navigate, NavLink, Link } from 'react-router-dom'
-import type { FilterPreset } from './api'
-import { getFilters } from './api'
+import { useCallback, useEffect, useState } from 'react'
+import { Routes, Route, Navigate, NavLink } from 'react-router-dom'
+import type { HouseHunt } from './api'
+import { getHouseHunts } from './api'
 import Scrapers from './pages/Scrapers'
 import Filters from './pages/Filters'
 import Settings from './pages/Settings'
 import Runs from './pages/Runs'
 import Results from './pages/Results'
 import Triage from './pages/Triage'
+import HuntList from './pages/HuntList'
+import HuntCreate from './pages/HuntCreate'
+import HuntDetail from './pages/HuntDetail'
 
 function pipelineNavClass({ isActive }: { isActive: boolean }) {
   return isActive
@@ -16,15 +19,24 @@ function pipelineNavClass({ isActive }: { isActive: boolean }) {
 }
 
 export default function App() {
-  const [presets, setPresets] = useState<FilterPreset[]>([])
-  const [presetsLoading, setPresetsLoading] = useState(true)
+  const [hunts, setHunts] = useState<HouseHunt[]>([])
+  const [huntsLoading, setHuntsLoading] = useState(true)
+  const [huntModal, setHuntModal] = useState<{
+    open: boolean
+    mode: 'create' | 'edit'
+    hunt: HouseHunt | null
+  }>({ open: false, mode: 'create', hunt: null })
+
+  const loadHunts = useCallback(() => {
+    return getHouseHunts()
+      .then(setHunts)
+      .catch(() => setHunts([]))
+  }, [])
 
   useEffect(() => {
-    getFilters()
-      .then(setPresets)
-      .catch(() => setPresets([]))
-      .finally(() => setPresetsLoading(false))
-  }, [])
+    setHuntsLoading(true)
+    loadHunts().finally(() => setHuntsLoading(false))
+  }, [loadHunts])
 
   return (
     <div className="flex min-h-screen bg-zinc-950">
@@ -32,24 +44,12 @@ export default function App() {
         data-testid="sidebar"
         className="fixed left-0 top-0 z-40 flex h-screen w-60 flex-col border-r border-white/10 bg-zinc-900 p-4"
       >
-        <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-zinc-500">House Hunts</div>
-        <nav className="flex flex-col gap-1" aria-label="House hunts">
-          {presetsLoading ? (
-            <span className="text-sm text-zinc-500">Loading…</span>
-          ) : presets.length === 0 ? (
-            <span className="text-sm text-zinc-500">No hunts yet</span>
-          ) : (
-            presets.map((p) => (
-              <Link
-                key={p.id}
-                to={`/results?preset=${p.id}`}
-                className="block rounded-md px-3 py-2 text-sm text-zinc-400 hover:bg-zinc-800/50 hover:text-white"
-              >
-                {p.name}
-              </Link>
-            ))
-          )}
-        </nav>
+        <HuntList
+          hunts={hunts}
+          loading={huntsLoading}
+          onNew={() => setHuntModal({ open: true, mode: 'create', hunt: null })}
+          onEdit={(hunt) => setHuntModal({ open: true, mode: 'edit', hunt })}
+        />
 
         <div className="mt-8 mb-2 text-xs font-semibold uppercase tracking-wide text-zinc-500">Triage</div>
         <nav className="flex flex-col gap-1" aria-label="Triage">
@@ -84,6 +84,15 @@ export default function App() {
         </div>
       </aside>
 
+      <HuntCreate
+        open={huntModal.open}
+        mode={huntModal.mode}
+        hunt={huntModal.hunt}
+        onClose={() => setHuntModal((m) => ({ ...m, open: false }))}
+        onSaved={() => void loadHunts()}
+        onDeleted={() => void loadHunts()}
+      />
+
       <main className="ml-60 flex min-h-screen flex-1 flex-col p-6">
         <Routes>
           <Route path="/" element={<Navigate to="/scrapers" replace />} />
@@ -93,6 +102,7 @@ export default function App() {
           <Route path="/runs" element={<Runs />} />
           <Route path="/results" element={<Results />} />
           <Route path="/triage" element={<Triage />} />
+          <Route path="/hunts/:id" element={<HuntDetail />} />
         </Routes>
       </main>
     </div>
