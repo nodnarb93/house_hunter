@@ -41,6 +41,22 @@ export interface FeedEntry {
   raw?: string
 }
 
+export interface Listing {
+  id: number
+  preset_id: number | null
+  run_id: number | null
+  title: string
+  link: string
+  price_cents: number | null
+  address: string | null
+  beds: number | null
+  baths: number | null
+  image_url: string | null
+  scraped_at: string
+  seen: number
+  bookmarked: number
+}
+
 export interface Env {
   DB: AppDatabase
 }

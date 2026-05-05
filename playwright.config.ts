@@ -5,7 +5,7 @@ export default defineConfig({
   webServer: {
     command: 'npm start',
     url: 'http://localhost:3001',
-    reuseExistingServer: true,
+    reuseExistingServer: false,
     timeout: 120_000,
     env: {
       PORT: '3001',
@@ -16,7 +16,7 @@ export default defineConfig({
     {
       name: 'chromium',
       use: {
-        baseURL: process.env.PLAYWRIGHT_BASE_URL ?? 'http://localhost:3001',
+        baseURL: 'http://localhost:3001',
         ...devices['Desktop Chrome'],
       },
     },

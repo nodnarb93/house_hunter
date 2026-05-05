@@ -10,6 +10,16 @@ function parseFilterConfig(configJson: string): FilterConfig {
   }
 }
 
+function extractFirstPriceCents(entry: FeedEntry): number | null {
+  const text = `${entry.title} ${entry.description}`.toLowerCase()
+  const priceRe = /\$?\s*([\d,]+)/
+  const match = priceRe.exec(text)
+  if (!match) return null
+  const n = parseInt(match[1].replace(/,/g, ''), 10)
+  if (isNaN(n)) return null
+  return n * 100
+}
+
 function matchesFilters(entry: FeedEntry, config: FilterConfig): boolean {
   const text = `${entry.title} ${entry.description}`.toLowerCase()
   const priceRe = /\$?\s*([\d,]+)/g
@@ -83,6 +93,13 @@ export async function runPipeline(
       .bind(startedAt, finishedAt, feedUrl, totalFetched, passed.length, resultSummary, presetId)
       .run()
     const runId = insert.meta.last_row_id as number
+    const listingInsert = db.prepare(
+      'INSERT OR IGNORE INTO listings (preset_id, run_id, title, link, price_cents, address, scraped_at) VALUES (?, ?, ?, ?, ?, ?, ?)'
+    )
+    for (const e of passed) {
+      const priceCents = extractFirstPriceCents(e)
+      await listingInsert.bind(presetId, runId, e.title, e.link, priceCents, null, finishedAt).run()
+    }
     runResults.push({
       runId,
       passed: passed.length,

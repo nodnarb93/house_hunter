@@ -7,6 +7,7 @@ import Filters from './pages/Filters'
 import Schedule from './pages/Schedule'
 import Settings from './pages/Settings'
 import Runs from './pages/Runs'
+import Results from './pages/Results'
 
 function pipelineNavClass({ isActive }: { isActive: boolean }) {
   return isActive
@@ -41,7 +42,7 @@ export default function App() {
             presets.map((p) => (
               <Link
                 key={p.id}
-                to="/filters"
+                to={`/results?preset=${p.id}`}
                 className="block rounded-md px-3 py-2 text-sm text-zinc-400 hover:bg-zinc-800/50 hover:text-white"
               >
                 {p.name}
@@ -87,6 +88,7 @@ export default function App() {
           <Route path="/schedule" element={<Schedule />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="/runs" element={<Runs />} />
+          <Route path="/results" element={<Results />} />
         </Routes>
       </main>
     </div>
