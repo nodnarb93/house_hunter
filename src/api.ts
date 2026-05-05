@@ -1,21 +1,5 @@
 const API = '/api'
 
-export interface FilterConfig {
-  feedUrls: string[]
-  minPrice?: number
-  maxPrice?: number
-  keywordsInclude?: string[]
-  keywordsExclude?: string[]
-  locationKeywords?: string[]
-}
-
-export interface FilterPreset {
-  id: number
-  name: string
-  config: string
-  created_at: string
-}
-
 export interface HouseHunt {
   id: number
   name: string
@@ -112,19 +96,6 @@ export async function deleteHouseHunt(id: number): Promise<void> {
   if (!r.ok) throw new Error(await r.text())
 }
 
-export async function getFilters(): Promise<FilterPreset[]> {
-  const r = await fetch(`${API}/filter-presets`)
-  if (!r.ok) throw new Error(await r.text())
-  return r.json()
-}
-
-export async function saveFilter(preset: { id?: number; name: string; config: FilterConfig }): Promise<FilterPreset> {
-  const body = preset.id ? { id: preset.id, name: preset.name, config: JSON.stringify(preset.config) } : { name: preset.name, config: JSON.stringify(preset.config) }
-  const r = await fetch(`${API}/filter-presets`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
-  if (!r.ok) throw new Error(await r.text())
-  return r.json()
-}
-
 export async function getSettings(): Promise<{ webhook_url?: string; webhook_enabled?: string }> {
   const r = await fetch(`${API}/settings`)
   if (!r.ok) throw new Error(await r.text())
@@ -136,16 +107,6 @@ export async function putSettings(webhook_url?: string, webhook_enabled?: boolea
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ webhook_url, webhook_enabled }),
-  })
-  if (!r.ok) throw new Error(await r.text())
-  return r.json()
-}
-
-export async function runNow(presetId?: number): Promise<{ ok: boolean; runs?: unknown[] }> {
-  const r = await fetch(`${API}/run`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(presetId != null ? { preset_id: presetId } : {}),
   })
   if (!r.ok) throw new Error(await r.text())
   return r.json()
