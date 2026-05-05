@@ -16,6 +16,44 @@ export interface FilterPreset {
   created_at: string
 }
 
+export interface HouseHunt {
+  id: number
+  name: string
+  created_at: string
+}
+
+export async function getHouseHunts(): Promise<HouseHunt[]> {
+  const r = await fetch(`${API}/house-hunts`)
+  if (!r.ok) throw new Error(await r.text())
+  return r.json()
+}
+
+export async function createHouseHunt(name: string): Promise<HouseHunt> {
+  const r = await fetch(`${API}/house-hunts`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name }),
+  })
+  if (!r.ok) throw new Error(await r.text())
+  return r.json()
+}
+
+export async function updateHouseHunt(id: number, name: string): Promise<HouseHunt> {
+  const r = await fetch(`${API}/house-hunts/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name }),
+  })
+  if (!r.ok) throw new Error(await r.text())
+  return r.json()
+}
+
+export async function deleteHouseHunt(id: number): Promise<void> {
+  const r = await fetch(`${API}/house-hunts/${id}`, { method: 'DELETE' })
+  if (r.status === 204) return
+  if (!r.ok) throw new Error(await r.text())
+}
+
 export async function getFilters(): Promise<FilterPreset[]> {
   const r = await fetch(`${API}/filter-presets`)
   if (!r.ok) throw new Error(await r.text())

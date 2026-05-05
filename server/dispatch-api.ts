@@ -6,6 +6,7 @@ import { handleRun } from './api/run'
 import { handleRuns } from './api/runs'
 import { handleScrapers } from './api/scrapers'
 import { handleListings } from './api/listings'
+import { handleHunts } from './api/hunts'
 import { runAllPresets } from './pipeline'
 
 export async function dispatchApi(request: Request, env: Env): Promise<Response> {
@@ -29,6 +30,7 @@ export async function dispatchApi(request: Request, env: Env): Promise<Response>
   if (p === '/api/run' || p === '/api/run/') return handleRun(request, env)
   if (p === '/api/runs' || p === '/api/runs/') return handleRuns(request, env)
   if (p.startsWith('/api/listings')) return handleListings(request, env)
+  if (p.startsWith('/api/house-hunts')) return handleHunts(request, env)
 
   return new Response('Not found', { status: 404 })
 }
