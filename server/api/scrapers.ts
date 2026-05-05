@@ -10,6 +10,27 @@ export interface ScraperSourceRow {
   created_at: string
   last_tested_at: string | null
   last_test_ok: number | null
+  schedule_slots: string | null
+  last_run_at: string | null
+}
+
+function parseScheduleSlots(raw: string | null): string[] {
+  if (raw == null || raw === '') return []
+  try {
+    const parsed = JSON.parse(raw) as unknown
+    if (!Array.isArray(parsed)) return []
+    return parsed.map((v) => String(v))
+  } catch {
+    return []
+  }
+}
+
+function scraperJsonRow(row: ScraperSourceRow) {
+  return {
+    ...row,
+    schedule_slots: parseScheduleSlots(row.schedule_slots),
+    last_run_at: row.last_run_at,
+  }
 }
 
 async function persistScraperTestResult(env: Env, sourceId: number, testOk: 0 | 1): Promise<void> {
@@ -44,7 +65,9 @@ export async function handleScrapers(request: Request, env: Env): Promise<Respon
 
     if (sourceId != null) {
       const row = await env.DB
-        .prepare('SELECT id, kind, url, config_json, last_tested_at, last_test_ok FROM scraper_sources WHERE id = ?')
+        .prepare(
+          'SELECT id, kind, url, config_json, last_tested_at, last_test_ok, schedule_slots, last_run_at FROM scraper_sources WHERE id = ?'
+        )
         .bind(sourceId)
         .first<ScraperSourceRow>()
       if (!row) return Response.json({ ok: false, error: 'Source not found' }, { status: 404 })
@@ -101,10 +124,11 @@ export async function handleScrapers(request: Request, env: Env): Promise<Respon
     if (request.method === 'GET') {
       const rows = await env.DB
         .prepare(
-          'SELECT id, kind, url, config_json, created_at, last_tested_at, last_test_ok FROM scraper_sources ORDER BY created_at ASC'
+          'SELECT id, kind, url, config_json, created_at, last_tested_at, last_test_ok, schedule_slots, last_run_at FROM scraper_sources ORDER BY created_at ASC'
         )
         .all<ScraperSourceRow>()
-      return Response.json(rows.results ?? [])
+      const list = (rows.results ?? []).map(scraperJsonRow)
+      return Response.json(list)
     }
 
     if (request.method === 'POST') {
@@ -172,11 +196,24 @@ export async function handleScrapers(request: Request, env: Env): Promise<Respon
       const r = await env.DB.prepare('INSERT INTO scraper_sources (kind, url, config_json) VALUES (?, ?, ?)').bind(kind, url, config_json).run()
       const row = await env.DB
         .prepare(
-          'SELECT id, kind, url, config_json, created_at, last_tested_at, last_test_ok FROM scraper_sources WHERE id = ?'
+          'SELECT id, kind, url, config_json, created_at, last_tested_at, last_test_ok, schedule_slots, last_run_at FROM scraper_sources WHERE id = ?'
         )
         .bind(r.meta.last_row_id)
         .first<ScraperSourceRow>()
-      return Response.json(row ?? { id: r.meta.last_row_id, kind, url, config_json, created_at: new Date().toISOString() })
+      if (!row) {
+        return Response.json({
+          id: r.meta.last_row_id,
+          kind,
+          url,
+          config_json,
+          created_at: new Date().toISOString(),
+          last_tested_at: null,
+          last_test_ok: null,
+          schedule_slots: [],
+          last_run_at: null,
+        })
+      }
+      return Response.json(scraperJsonRow(row))
     }
 
     return new Response('Method not allowed', { status: 405 })
