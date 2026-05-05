@@ -7,6 +7,7 @@ test.describe('Hunt Results', () => {
 
   test('results page layout, empty state, and listings API', async ({ page, request }) => {
     await page.goto('/results')
+    await page.waitForLoadState('networkidle')
 
     await expect(page.getByTestId('results-list')).toBeVisible()
     await expect(page.getByTestId('results-detail')).toBeVisible()
