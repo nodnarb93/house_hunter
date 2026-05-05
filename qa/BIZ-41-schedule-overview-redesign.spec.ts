@@ -20,7 +20,7 @@ test('schedule overview: grid layout, hour labels, legend, no document overflow 
     const m = i % 2 === 0 ? '00' : '30'
     return `${h}:${m}`
   })
-  const freeSlot = ALL_SLOTS.find((s) => !takenSlots.has(s))
+  const freeSlot = [...ALL_SLOTS].reverse().find((s) => !takenSlots.has(s))
   if (!freeSlot) throw new Error('No free slot available in DB')
 
   try {
