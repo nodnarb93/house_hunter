@@ -55,6 +55,7 @@ export interface Listing {
   scraped_at: string
   seen: number
   bookmarked: number
+  stage: string
 }
 
 export interface Env {

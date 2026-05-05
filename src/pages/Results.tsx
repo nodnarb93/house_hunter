@@ -15,6 +15,7 @@ interface ListingRow {
   scraped_at: string
   seen: number
   bookmarked: number
+  stage: string
 }
 
 const btnCompact = 'rounded-md bg-zinc-800 px-2.5 py-1.5 text-xs text-white hover:bg-zinc-700 disabled:cursor-not-allowed disabled:opacity-50'

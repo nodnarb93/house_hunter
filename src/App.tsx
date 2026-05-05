@@ -8,6 +8,7 @@ import Schedule from './pages/Schedule'
 import Settings from './pages/Settings'
 import Runs from './pages/Runs'
 import Results from './pages/Results'
+import Triage from './pages/Triage'
 
 function pipelineNavClass({ isActive }: { isActive: boolean }) {
   return isActive
@@ -52,11 +53,18 @@ export default function App() {
         </nav>
 
         <div className="mt-8 mb-2 text-xs font-semibold uppercase tracking-wide text-zinc-500">Triage</div>
-        <div className="flex flex-col gap-1" aria-label="Triage (coming in a later phase)">
-          <span className="cursor-not-allowed rounded-md px-3 py-2 text-sm text-zinc-400 opacity-40">Bookmarks</span>
-          <span className="cursor-not-allowed rounded-md px-3 py-2 text-sm text-zinc-400 opacity-40">Contacted</span>
-          <span className="cursor-not-allowed rounded-md px-3 py-2 text-sm text-zinc-400 opacity-40">Archive</span>
-        </div>
+        <nav className="flex flex-col gap-1" aria-label="Triage">
+          <NavLink
+            to="/triage"
+            className={({ isActive }) =>
+              isActive
+                ? 'block rounded-md bg-zinc-800 px-3 py-2 text-sm text-white'
+                : 'block rounded-md px-3 py-2 text-sm text-zinc-400 hover:bg-zinc-800/50 hover:text-white'
+            }
+          >
+            Triage Board
+          </NavLink>
+        </nav>
 
         <div className="mt-auto border-t border-white/10 pt-4">
           <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-zinc-500">Pipeline</div>
@@ -89,6 +97,7 @@ export default function App() {
           <Route path="/settings" element={<Settings />} />
           <Route path="/runs" element={<Runs />} />
           <Route path="/results" element={<Results />} />
+          <Route path="/triage" element={<Triage />} />
         </Routes>
       </main>
     </div>
