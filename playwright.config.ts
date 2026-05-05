@@ -8,6 +8,7 @@ export default defineConfig({
     reuseExistingServer: true,
     timeout: 120_000,
     env: {
+      PORT: '3001',
       DISABLE_SCHEDULED_SCRAPES: '1',
     },
   },
