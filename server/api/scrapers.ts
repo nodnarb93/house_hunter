@@ -220,6 +220,44 @@ export async function handleScrapers(request: Request, env: Env): Promise<Respon
   }
 
   const idMatch = pathname.match(/^\/api\/scrapers\/(\d+)$/)
+  if (idMatch && request.method === 'PUT') {
+    const id = parseInt(idMatch[1], 10)
+    if (isNaN(id)) return Response.json({ error: 'Invalid id' }, { status: 400 })
+
+    const body = (await request.json()) as { schedule_slots?: string[] }
+    const newSlots: string[] = Array.isArray(body?.schedule_slots) ? body.schedule_slots.map(String) : []
+
+    const others = await env.DB
+      .prepare('SELECT id, schedule_slots FROM scraper_sources WHERE id != ?')
+      .bind(id)
+      .all<{ id: number; schedule_slots: string | null }>()
+    const takenSlots = new Map<string, number>()
+    for (const other of others.results ?? []) {
+      for (const s of parseScheduleSlots(other.schedule_slots)) {
+        takenSlots.set(s, other.id)
+      }
+    }
+    for (const slot of newSlots) {
+      const owner = takenSlots.get(slot)
+      if (owner !== undefined) {
+        return Response.json({ error: `Slot ${slot} already claimed by scraper ${owner}` }, { status: 409 })
+      }
+    }
+
+    await env.DB
+      .prepare('UPDATE scraper_sources SET schedule_slots = ? WHERE id = ?')
+      .bind(JSON.stringify(newSlots), id)
+      .run()
+    const row = await env.DB
+      .prepare(
+        'SELECT id, kind, url, config_json, created_at, last_tested_at, last_test_ok, schedule_slots, last_run_at FROM scraper_sources WHERE id = ?'
+      )
+      .bind(id)
+      .first<ScraperSourceRow>()
+    if (!row) return Response.json({ error: 'Source not found' }, { status: 404 })
+    return Response.json(scraperJsonRow(row))
+  }
+
   if (idMatch && request.method === 'DELETE') {
     const id = parseInt(idMatch[1], 10)
     if (isNaN(id)) return Response.json({ error: 'Invalid id' }, { status: 400 })
