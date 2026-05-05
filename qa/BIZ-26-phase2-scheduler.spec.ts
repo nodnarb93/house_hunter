@@ -4,13 +4,13 @@ test('per-scraper schedule_slots PUT collision and deprecated /api/schedule', as
   const create = await request.post('/api/scrapers', {
     data: { kind: 'rss', url: 'https://example.com/feed.xml' },
   });
-  expect(create.status()).toBe(200);
+  expect(create.status()).toBe(201);
   const scraperA = (await create.json()) as { id: number };
 
   const createB = await request.post('/api/scrapers', {
     data: { kind: 'rss', url: 'https://example.com/other.xml' },
   });
-  expect(createB.status()).toBe(200);
+  expect(createB.status()).toBe(201);
   const scraperB = (await createB.json()) as { id: number };
 
   const putA = await request.put(`/api/scrapers/${scraperA.id}`, {

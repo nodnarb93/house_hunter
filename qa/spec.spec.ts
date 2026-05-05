@@ -37,7 +37,7 @@ test('POST /api/scraper-sources/test persists last_tested_at to DB', async ({ re
   const add = await request.post('/api/scraper-sources', {
     data: { url: 'http://test-invalid-feed.example.invalid/feed.xml' },
   })
-  expect(add.status()).toBe(200)
+  expect(add.status()).toBe(201)
   const source = await add.json() as { id: number }
 
   const testRes = await request.post('/api/scraper-sources/test', { data: { id: source.id } })

@@ -8,13 +8,13 @@ test('scrapers page: schedule overview, slot picker with 48 options, taken slot 
   const createA = await request.post('/api/scrapers', {
     data: { kind: 'rss', url: `https://biz29-a-${suffix}.example.com/feed.xml` },
   })
-  expect(createA.status()).toBe(200)
+  expect(createA.status()).toBe(201)
   const scraperA = (await createA.json()) as { id: number }
 
   const createB = await request.post('/api/scrapers', {
     data: { kind: 'rss', url: `https://biz29-b-${suffix}.example.com/feed.xml` },
   })
-  expect(createB.status()).toBe(200)
+  expect(createB.status()).toBe(201)
   const scraperB = (await createB.json()) as { id: number }
 
   const putA = await request.put(`/api/scrapers/${scraperA.id}`, {
