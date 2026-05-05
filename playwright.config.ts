@@ -16,7 +16,7 @@ export default defineConfig({
     {
       name: 'chromium',
       use: {
-        baseURL: process.env.PLAYWRIGHT_BASE_URL ?? 'http://localhost:3001',
+        baseURL: 'http://localhost:3001',
         ...devices['Desktop Chrome'],
       },
     },
