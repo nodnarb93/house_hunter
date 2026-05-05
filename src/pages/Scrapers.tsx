@@ -305,7 +305,7 @@ function ScheduleOverview({ sources }: { sources: ScraperSource[] }) {
         Local time, 30-minute slots (read-only). A scraper runs when the clock matches one of its selected slots.
       </p>
       <div
-        className="mt-3 flex w-full min-w-0 gap-px overflow-x-auto rounded-md border border-white/10 bg-zinc-900 p-1"
+        className="mt-3 flex max-w-full w-full min-w-0 gap-px overflow-x-auto rounded-md border border-white/10 bg-zinc-900 p-1"
         role="list"
         aria-label="Twenty-four hour scraper schedule"
       >
