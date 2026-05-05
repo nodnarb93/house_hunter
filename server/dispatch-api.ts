@@ -7,11 +7,17 @@ import { handleRuns } from './api/runs'
 import { handleScrapers } from './api/scrapers'
 import { handleListings } from './api/listings'
 import { handleHunts } from './api/hunts'
+import { handleTestRoutes } from './api/test'
 import { runAllPresets } from './pipeline'
 
 export async function dispatchApi(request: Request, env: Env): Promise<Response> {
   const url = new URL(request.url)
   const p = url.pathname
+
+  if (p.startsWith('/api/test')) {
+    const testRes = await handleTestRoutes(request, env)
+    if (testRes.status !== 404) return testRes
+  }
 
   if (p === '/api/run-all' || p === '/api/run-all/') {
     if (request.method !== 'POST') return new Response('Method not allowed', { status: 405 })
