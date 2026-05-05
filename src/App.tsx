@@ -89,7 +89,7 @@ export default function App() {
         onDeleted={() => void loadHunts()}
       />
 
-      <main className="ml-60 flex min-h-screen flex-1 flex-col p-6">
+      <main className="ml-60 flex min-h-screen min-w-0 flex-1 flex-col p-6">
         <Routes>
           <Route path="/" element={<Navigate to="/scrapers" replace />} />
           <Route path="/scrapers" element={<Scrapers />} />
