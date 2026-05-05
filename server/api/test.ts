@@ -49,5 +49,12 @@ export async function handleTestRoutes(request: Request, env: Env): Promise<Resp
     return Response.json({ ok: true })
   }
 
+  if (p.startsWith('/api/test/listings/') && request.method === 'DELETE') {
+    const id = parseInt(p.split('/').pop() ?? '', 10)
+    if (!Number.isFinite(id)) return Response.json({ error: 'invalid id' }, { status: 400 })
+    await env.DB.prepare('DELETE FROM listings WHERE id = ?').bind(id).run()
+    return new Response(null, { status: 204 })
+  }
+
   return new Response('Not found', { status: 404 })
 }

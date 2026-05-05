@@ -45,10 +45,13 @@ test('POST scrape pipeline: hunt webhook receives matching listing; results incl
   const port = (server.address() as AddressInfo).port
   const webhookUrl = `http://127.0.0.1:${port}/hook`
 
+  let huntId: number | undefined
+  let listingId: number | undefined
+
   try {
     const post = await request.post('/api/house-hunts', { data: { name: `Phase6 notif ${Date.now()}` } })
     expect(post.status()).toBe(201)
-    const { id: huntId } = (await post.json()) as { id: number }
+    huntId = ((await post.json()) as { id: number }).id
 
     const put = await request.put(`/api/house-hunts/${huntId}`, {
       data: {
@@ -70,7 +73,7 @@ test('POST scrape pipeline: hunt webhook receives matching listing; results incl
       },
     })
     expect(seed.status()).toBe(201)
-    const { id: listingId } = (await seed.json()) as { id: number }
+    listingId = ((await seed.json()) as { id: number }).id
 
     const evalRes = await request.post('/api/test/evaluate-notifications', {
       data: { listing_ids: [listingId] },
@@ -92,9 +95,13 @@ test('POST scrape pipeline: hunt webhook receives matching listing; results incl
     expect(results.status()).toBe(200)
     const listings = (await results.json()) as Array<{ id: number; link: string }>
     expect(listings.some((l) => l.id === listingId)).toBe(true)
-
-    await request.delete(`/api/house-hunts/${huntId}`)
   } finally {
+    if (huntId !== undefined) {
+      await request.delete(`/api/house-hunts/${huntId}`)
+    }
+    if (listingId !== undefined) {
+      await request.delete(`/api/test/listings/${listingId}`)
+    }
     await new Promise<void>((resolve, reject) => {
       server.close((err) => (err ? reject(err) : resolve()))
     })
