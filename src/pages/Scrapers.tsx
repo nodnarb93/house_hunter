@@ -107,10 +107,12 @@ function scheduleGroupKey(s: ScraperSource): string {
 function slotHeldByOther(
   slot: string,
   sources: ScraperSource[],
-  selfId: number,
+  self: ScraperSource,
 ): { id: number; label: string } | null {
+  const selfKey = scheduleGroupKey(self)
   for (const o of sources) {
-    if (o.id === selfId) continue
+    if (o.id === self.id) continue
+    if (scheduleGroupKey(o) !== selfKey) continue
     const slots = o.schedule_slots ?? []
     if (slots.includes(slot)) return { id: o.id, label: rowLabel(o) }
   }
@@ -140,11 +142,8 @@ function proximityWarning(
   return false
 }
 
-function scraperForSlot(slot: string, sources: ScraperSource[]): ScraperSource | null {
-  for (const s of sources) {
-    if ((s.schedule_slots ?? []).includes(slot)) return s
-  }
-  return null
+function scrapersForSlot(slot: string, sources: ScraperSource[]): ScraperSource[] {
+  return sources.filter((s) => (s.schedule_slots ?? []).includes(slot))
 }
 
 const btnCompact = 'rounded-md bg-zinc-800 px-2.5 py-1.5 text-xs text-white hover:bg-zinc-700 disabled:cursor-not-allowed disabled:opacity-50'
@@ -321,6 +320,15 @@ function ScraperSourceTypeDropdown({
 }
 
 function ScheduleOverview({ sources }: { sources: ScraperSource[] }) {
+  const [now, setNow] = useState(() => new Date())
+  useEffect(() => {
+    const id = setInterval(() => setNow(new Date()), 60_000)
+    return () => clearInterval(id)
+  }, [])
+  const currentMinutes = now.getHours() * 60 + now.getMinutes()
+  const timePercent = (currentMinutes / 1440) * 100
+  const timeLabel = now.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })
+
   const colorMap = new Map(
     [...sources].sort((a, b) => a.id - b.id).map((s, i) => [s.id, SLOT_COLORS[i % SLOT_COLORS.length]]),
   )
@@ -331,47 +339,69 @@ function ScheduleOverview({ sources }: { sources: ScraperSource[] }) {
 
   return (
     <section className="mt-8 max-w-full" data-testid="schedule-overview" aria-labelledby="schedule-overview-heading">
-      <h2 id="schedule-overview-heading" className="text-sm font-semibold text-zinc-300">
-        Schedule Overview
-      </h2>
-      <p className="mt-1 max-w-3xl text-xs text-zinc-500">
-        Local time, 30-minute slots (read-only). A scraper runs when the clock matches one of its selected slots.
-      </p>
-      <div className="mt-3 w-full min-w-0 overflow-hidden rounded-md border border-white/10 bg-zinc-900 p-1">
-        <div className="grid" style={{ gridTemplateColumns: 'repeat(48, minmax(0, 1fr))' }}>
-          {HOUR_LABELS.map(({ label }) => (
-            <div
-              key={label}
-              data-testid="hour-label"
-              style={{ gridColumn: 'span 4' }}
-              className="truncate pl-0.5 text-[9px] text-zinc-500"
-            >
-              {label}
-            </div>
-          ))}
+      <div className="flex items-start justify-between">
+        <div>
+          <h2 id="schedule-overview-heading" className="text-sm font-semibold text-zinc-300">
+            Schedule Overview
+          </h2>
+          <p className="mt-1 max-w-3xl text-xs text-zinc-500">
+            Local time, 30-minute slots (read-only). A scraper runs when the clock matches one of its selected slots.
+          </p>
         </div>
-        <div
-          className="grid"
-          style={{ gridTemplateColumns: 'repeat(48, minmax(0, 1fr))' }}
-          role="list"
-          aria-label="Twenty-four hour scraper schedule"
-        >
-          {ALL_DAY_SLOTS.map((slot) => {
-            const owner = scraperForSlot(slot, sources)
-            return (
+        <span className="mt-0 text-xs text-zinc-400" data-testid="current-time-label">
+          {timeLabel}
+        </span>
+      </div>
+      <div className="mt-3 w-full min-w-0 overflow-hidden rounded-md border border-white/10 bg-zinc-900 p-1">
+        <div className="relative">
+          <div className="grid" style={{ gridTemplateColumns: 'repeat(48, minmax(0, 1fr))' }}>
+            {HOUR_LABELS.map(({ label }) => (
               <div
-                key={slot}
-                data-testid={`schedule-slot-cell-${slot}`}
-                title={owner ? rowLabel(owner) : slot}
-                className={`h-14 overflow-hidden border border-transparent text-center text-[10px] leading-tight ${
-                  owner ? `${colorFor(owner.id)} text-zinc-200` : 'bg-zinc-950 text-zinc-600'
-                }`}
-                role="listitem"
+                key={label}
+                data-testid="hour-label"
+                style={{ gridColumn: 'span 4' }}
+                className="truncate pl-0.5 text-[9px] text-zinc-500"
               >
-                {owner ? null : <span aria-hidden>·</span>}
+                {label}
               </div>
-            )
-          })}
+            ))}
+          </div>
+          <div
+            className="grid"
+            style={{ gridTemplateColumns: 'repeat(48, minmax(0, 1fr))' }}
+            role="list"
+            aria-label="Twenty-four hour scraper schedule"
+          >
+            {ALL_DAY_SLOTS.map((slot) => {
+              const owners = scrapersForSlot(slot, sources)
+              return (
+                <div
+                  key={slot}
+                  data-testid={`schedule-slot-cell-${slot}`}
+                  title={owners.length > 0 ? owners.map(rowLabel).join(' / ') : slot}
+                  className="h-14 overflow-hidden border border-transparent"
+                  role="listitem"
+                >
+                  {owners.length === 0 ? (
+                    <div className="flex h-full items-center justify-center bg-zinc-950 text-[10px] text-zinc-600">
+                      <span aria-hidden>·</span>
+                    </div>
+                  ) : (
+                    <div className="flex h-full flex-col">
+                      {owners.map((o) => (
+                        <div key={o.id} className={`${colorFor(o.id)} flex-1`} style={{ minHeight: 0 }} />
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+          <div
+            data-testid="current-time-indicator"
+            style={{ left: `${timePercent}%` }}
+            className="pointer-events-none absolute inset-y-0 w-px bg-white/70 z-10"
+          />
         </div>
       </div>
       {activeSources.length > 0 ? (
@@ -413,6 +443,7 @@ export default function Scrapers() {
   const [draftSlots, setDraftSlots] = useState<string[]>([])
   const [savingScheduleId, setSavingScheduleId] = useState<number | null>(null)
   const [activeScrapersOpen, setActiveScrapersOpen] = useState(false)
+  const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null)
 
   const sortedSources = useMemo(() => sortSourcesRecentFirst(sources), [sources])
 
@@ -549,8 +580,12 @@ export default function Scrapers() {
       <ScheduleOverview sources={sources} />
 
       <section className="mt-8" aria-labelledby="scrapers-active-heading">
-        <div className="flex items-center justify-between">
-          <h2 id="scrapers-active-heading" className="text-sm font-semibold text-zinc-300">
+        <div className="flex items-center gap-1">
+          <h2
+            id="scrapers-active-heading"
+            className="cursor-pointer text-sm font-semibold text-zinc-300"
+            onClick={() => setActiveScrapersOpen((o) => !o)}
+          >
             Active Scrapers
           </h2>
           <button
@@ -561,7 +596,7 @@ export default function Scrapers() {
             className="text-xs text-zinc-400 hover:text-white"
             onClick={() => setActiveScrapersOpen((o) => !o)}
           >
-            {activeScrapersOpen ? 'Collapse ▲' : 'Expand ▼'}
+            {activeScrapersOpen ? '▲' : '▼'}
           </button>
         </div>
         {activeScrapersOpen && (
@@ -617,8 +652,13 @@ export default function Scrapers() {
                           >
                             {testingId === s.id ? 'Testing…' : 'Test'}
                           </button>
-                          <button type="button" className={btnCompact} onClick={() => remove(s.id)}>
-                            Remove
+                          <button
+                            type="button"
+                            className="rounded-md bg-red-700 px-2.5 py-1.5 text-xs text-white hover:bg-red-600 disabled:cursor-not-allowed disabled:opacity-50"
+                            data-testid={`scraper-delete-${s.id}`}
+                            onClick={() => setDeleteConfirmId(s.id)}
+                          >
+                            Delete
                           </button>
                         </div>
                       </div>
@@ -642,7 +682,7 @@ export default function Scrapers() {
                               aria-label="Time slots"
                             >
                               {ALL_DAY_SLOTS.map((slot) => {
-                                const held = slotHeldByOther(slot, sources, s.id)
+                                const held = slotHeldByOther(slot, sources, s)
                                 const selected = draftSlots.includes(slot)
                                 const disabled = held !== null
                                 return (
@@ -843,6 +883,39 @@ export default function Scrapers() {
 
       {error && <p className="mt-4 text-sm text-red-400">{error}</p>}
       {success && <p className="mt-4 text-sm text-green-400">{success}</p>}
+
+      {deleteConfirmId !== null && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60"
+          data-testid="delete-confirm-modal"
+        >
+          <div className="rounded-lg bg-zinc-800 p-6 shadow-xl">
+            <p className="text-sm font-semibold text-white">Delete this Scraper?</p>
+            <div className="mt-4 flex justify-end gap-3">
+              <button
+                type="button"
+                className={btnCompact}
+                data-testid="delete-cancel-btn"
+                onClick={() => setDeleteConfirmId(null)}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="rounded-md bg-red-700 px-2.5 py-1.5 text-xs text-white hover:bg-red-600"
+                data-testid="delete-confirm-btn"
+                onClick={async () => {
+                  const id = deleteConfirmId
+                  setDeleteConfirmId(null)
+                  await remove(id)
+                }}
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   )
 }

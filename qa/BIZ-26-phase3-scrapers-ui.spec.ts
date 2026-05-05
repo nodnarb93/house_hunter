@@ -6,13 +6,13 @@ test('scrapers page: schedule overview, slot picker with 48 options, taken slot 
 }) => {
   const suffix = Date.now()
   const createA = await request.post('/api/scrapers', {
-    data: { kind: 'rss', url: `https://biz29-a-${suffix}.example.com/feed.xml` },
+    data: { kind: 'rss', url: `https://example.com/biz29-a-${suffix}.xml` },
   })
   expect(createA.status()).toBe(201)
   const scraperA = (await createA.json()) as { id: number }
 
   const createB = await request.post('/api/scrapers', {
-    data: { kind: 'rss', url: `https://biz29-b-${suffix}.example.com/feed.xml` },
+    data: { kind: 'rss', url: `https://example.com/biz29-b-${suffix}.xml` },
   })
   expect(createB.status()).toBe(201)
   const scraperB = (await createB.json()) as { id: number }

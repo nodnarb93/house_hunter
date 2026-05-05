@@ -25,6 +25,26 @@ function parseScheduleSlots(raw: string | null): string[] {
   }
 }
 
+/** Same grouping semantics as the Scrapers UI `scheduleGroupKey` — used for slot collision checks. */
+function scheduleGroupKeyFromRow(row: { id: number; kind: string; url: string; config_json: string | null }): string {
+  if (row.kind === 'redfin' && row.config_json) {
+    try {
+      const c = JSON.parse(row.config_json) as { market?: string }
+      if (c.market) return `redfin:${String(c.market).toLowerCase()}`
+    } catch {
+      /* ignore */
+    }
+  }
+  if (row.kind === 'rss' && row.url?.trim()) {
+    try {
+      return `rss:${new URL(row.url.trim()).hostname.toLowerCase()}`
+    } catch {
+      /* ignore */
+    }
+  }
+  return `other:${row.kind}:${row.id}`
+}
+
 function scraperJsonRow(row: ScraperSourceRow) {
   return {
     ...row,
@@ -227,12 +247,20 @@ export async function handleScrapers(request: Request, env: Env): Promise<Respon
     const body = (await request.json()) as { schedule_slots?: string[] }
     const newSlots: string[] = Array.isArray(body?.schedule_slots) ? body.schedule_slots.map(String) : []
 
-    const others = await env.DB
-      .prepare('SELECT id, schedule_slots FROM scraper_sources WHERE id != ?')
+    const selfRow = await env.DB
+      .prepare('SELECT id, kind, url, config_json FROM scraper_sources WHERE id = ?')
       .bind(id)
-      .all<{ id: number; schedule_slots: string | null }>()
+      .first<{ id: number; kind: string; url: string; config_json: string | null }>()
+    if (!selfRow) return Response.json({ error: 'Source not found' }, { status: 404 })
+    const selfKey = scheduleGroupKeyFromRow(selfRow)
+
+    const others = await env.DB
+      .prepare('SELECT id, kind, url, config_json, schedule_slots FROM scraper_sources WHERE id != ?')
+      .bind(id)
+      .all<{ id: number; kind: string; url: string; config_json: string | null; schedule_slots: string | null }>()
     const takenSlots = new Map<string, number>()
     for (const other of others.results ?? []) {
+      if (scheduleGroupKeyFromRow(other) !== selfKey) continue
       for (const s of parseScheduleSlots(other.schedule_slots)) {
         takenSlots.set(s, other.id)
       }
