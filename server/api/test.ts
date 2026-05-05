@@ -56,5 +56,10 @@ export async function handleTestRoutes(request: Request, env: Env): Promise<Resp
     return new Response(null, { status: 204 })
   }
 
+  if (p === '/api/test/listings' && request.method === 'DELETE') {
+    await env.DB.prepare('DELETE FROM listings').run()
+    return new Response(null, { status: 204 })
+  }
+
   return new Response('Not found', { status: 404 })
 }

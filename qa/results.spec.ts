@@ -1,6 +1,10 @@
 import { test, expect } from '@playwright/test'
 
 test.describe('Hunt Results', () => {
+  test.beforeEach(async ({ request }) => {
+    await request.delete('/api/test/listings')
+  })
+
   test('results page layout, empty state, and listings API', async ({ page, request }) => {
     await page.goto('/results')
 
