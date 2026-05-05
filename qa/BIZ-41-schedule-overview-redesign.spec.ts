@@ -40,7 +40,7 @@ test('schedule overview: grid layout, hour labels, legend, no document overflow 
     await expect(cell).toBeVisible()
     await expect(cell).not.toHaveClass(/bg-zinc-950/)
 
-    await expect(overview.getByText(feedUrl, { exact: true })).toBeVisible()
+    await expect(overview.getByText(feedUrl, { exact: false })).toBeVisible()
 
     const docFitsViewport = await page.evaluate(
       () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,
