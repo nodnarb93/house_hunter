@@ -11,6 +11,11 @@ const defaultConfig: FilterConfig = {
   locationKeywords: [],
 }
 
+const btnPrimary = 'rounded-md bg-zinc-800 px-3 py-1.5 text-sm text-white hover:bg-zinc-700 disabled:cursor-not-allowed disabled:opacity-50'
+const btnSecondary = 'rounded-md bg-zinc-800 px-3 py-1.5 text-sm text-white hover:bg-zinc-700 disabled:cursor-not-allowed disabled:opacity-50'
+const inputBase =
+  'w-full rounded-md border border-white/10 bg-zinc-900 px-2.5 py-1.5 text-sm text-white placeholder:text-zinc-500 focus:border-blue-400/50 focus:outline-none focus:ring-1 focus:ring-blue-400/30'
+
 function parseConfig(s: string): FilterConfig {
   try {
     const o = JSON.parse(s) as FilterConfig
@@ -102,104 +107,140 @@ export default function Filters() {
     setForm((f) => ({ ...f, config: { ...f.config, feedUrls: f.config.feedUrls.filter((_, j) => j !== i) } }))
 
   const setKeywords = (key: keyof FilterConfig, value: string) => {
-    const arr = value ? value.split(',').map((s) => s.trim()).filter(Boolean) : []
+    const arr = value
+      ? value
+          .split(',')
+          .map((s) => s.trim())
+          .filter(Boolean)
+      : []
     setForm((f) => ({ ...f, config: { ...f.config, [key]: arr } }))
   }
 
-  if (loading) return <p>Loading...</p>
+  if (loading) return <p className="text-zinc-400">Loading…</p>
 
   return (
     <>
-      <h1>Filter presets</h1>
-      <p>Create or edit a preset: name, feed URLs (RSS/Atom), optional price range and keywords.</p>
+      <h1 className="text-xl font-semibold text-white">Filter presets</h1>
+      <p className="mt-1 max-w-2xl text-sm text-zinc-400">
+        Create or edit a preset: name, feed URLs (RSS/Atom), optional price range and keywords.
+      </p>
       {presets.length > 0 && (
-        <div className="list-item" style={{ marginBottom: '1rem' }}>
-          <strong>Existing presets</strong>
-          <ul style={{ margin: '0.5rem 0 0', paddingLeft: '1.25rem' }}>
+        <div className="mt-6 rounded-md border border-white/10 bg-zinc-900 p-4">
+          <strong className="text-white">Existing presets</strong>
+          <ul className="mt-2 list-disc space-y-2 pl-5 text-sm text-zinc-300">
             {presets.map((p) => (
               <li key={p.id}>
-                <button type="button" className="secondary" onClick={() => loadPreset(p)} style={{ marginRight: '0.5rem' }}>
+                <button type="button" className={`${btnSecondary} mr-2`} onClick={() => loadPreset(p)}>
                   Edit
                 </button>
-                <button type="button" onClick={() => run(p.id)} disabled={running}>
+                <button type="button" className={btnPrimary} onClick={() => run(p.id)} disabled={running}>
                   Run now
-                </button>
-                {' '}{p.name}
+                </button>{' '}
+                <span className="text-zinc-400">{p.name}</span>
               </li>
             ))}
           </ul>
         </div>
       )}
-      <div className="form-group">
-        <label>Preset name</label>
-        <input value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} placeholder="e.g. Downtown 2br" />
+      <div className="mt-6 max-w-xl space-y-4">
+        <div>
+          <label className="mb-1 block text-sm text-zinc-400">Preset name</label>
+          <input
+            value={form.name}
+            onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+            placeholder="e.g. Downtown 2br"
+            className={inputBase}
+          />
+        </div>
+        <div>
+          <label className="mb-1 block text-sm text-zinc-400">Feed URLs (one per line or one per box)</label>
+          {form.config.feedUrls.map((u, i) => (
+            <div key={i} className="mb-2 flex flex-wrap gap-2">
+              <input
+                value={u}
+                onChange={(e) => setFeedUrl(i, e.target.value)}
+                placeholder="https://example.com/feed.xml"
+                className={`${inputBase} min-w-[200px] flex-1`}
+              />
+              <button type="button" className={btnSecondary} onClick={() => removeFeedUrl(i)} disabled={form.config.feedUrls.length <= 1}>
+                Remove
+              </button>
+            </div>
+          ))}
+          <button type="button" className={btnSecondary} onClick={addFeedUrl}>
+            Add feed URL
+          </button>
+        </div>
+        <div>
+          <label className="mb-1 block text-sm text-zinc-400">Min price (optional)</label>
+          <input
+            type="number"
+            value={form.config.minPrice ?? ''}
+            onChange={(e) =>
+              setForm((f) => ({
+                ...f,
+                config: { ...f.config, minPrice: e.target.value ? Number(e.target.value) : undefined },
+              }))
+            }
+            placeholder="e.g. 500"
+            className={inputBase}
+          />
+        </div>
+        <div>
+          <label className="mb-1 block text-sm text-zinc-400">Max price (optional)</label>
+          <input
+            type="number"
+            value={form.config.maxPrice ?? ''}
+            onChange={(e) =>
+              setForm((f) => ({
+                ...f,
+                config: { ...f.config, maxPrice: e.target.value ? Number(e.target.value) : undefined },
+              }))
+            }
+            placeholder="e.g. 2000"
+            className={inputBase}
+          />
+        </div>
+        <div>
+          <label className="mb-1 block text-sm text-zinc-400">Keywords include (comma-separated, optional)</label>
+          <input
+            value={(form.config.keywordsInclude ?? []).join(', ')}
+            onChange={(e) => setKeywords('keywordsInclude', e.target.value)}
+            placeholder="e.g. 2br, parking"
+            className={inputBase}
+          />
+        </div>
+        <div>
+          <label className="mb-1 block text-sm text-zinc-400">Keywords exclude (comma-separated, optional)</label>
+          <input
+            value={(form.config.keywordsExclude ?? []).join(', ')}
+            onChange={(e) => setKeywords('keywordsExclude', e.target.value)}
+            placeholder="e.g. studio, basement"
+            className={inputBase}
+          />
+        </div>
+        <div>
+          <label className="mb-1 block text-sm text-zinc-400">Location keywords (comma-separated, optional)</label>
+          <input
+            value={(form.config.locationKeywords ?? []).join(', ')}
+            onChange={(e) => setKeywords('locationKeywords', e.target.value)}
+            placeholder="e.g. downtown, north side"
+            className={inputBase}
+          />
+        </div>
       </div>
-      <div className="form-group">
-        <label>Feed URLs (one per line or one per box)</label>
-        {form.config.feedUrls.map((u, i) => (
-          <div key={i} style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.5rem' }}>
-            <input value={u} onChange={(e) => setFeedUrl(i, e.target.value)} placeholder="https://example.com/feed.xml" style={{ flex: 1 }} />
-            <button type="button" className="secondary" onClick={() => removeFeedUrl(i)} disabled={form.config.feedUrls.length <= 1}>
-              Remove
-            </button>
-          </div>
-        ))}
-        <button type="button" className="secondary" onClick={addFeedUrl}>
-          Add feed URL
+      {error && <p className="mt-4 text-sm text-red-400">{error}</p>}
+      {success && <p className="mt-4 text-sm text-green-400">{success}</p>}
+      <div className="mt-6 flex flex-wrap gap-2">
+        <button className={btnPrimary} onClick={submit}>
+          {editing ? 'Update preset' : 'Create preset'}
         </button>
-      </div>
-      <div className="form-group">
-        <label>Min price (optional)</label>
-        <input
-          type="number"
-          value={form.config.minPrice ?? ''}
-          onChange={(e) => setForm((f) => ({ ...f, config: { ...f.config, minPrice: e.target.value ? Number(e.target.value) : undefined } }))}
-          placeholder="e.g. 500"
-        />
-      </div>
-      <div className="form-group">
-        <label>Max price (optional)</label>
-        <input
-          type="number"
-          value={form.config.maxPrice ?? ''}
-          onChange={(e) => setForm((f) => ({ ...f, config: { ...f.config, maxPrice: e.target.value ? Number(e.target.value) : undefined } }))}
-          placeholder="e.g. 2000"
-        />
-      </div>
-      <div className="form-group">
-        <label>Keywords include (comma-separated, optional)</label>
-        <input
-          value={(form.config.keywordsInclude ?? []).join(', ')}
-          onChange={(e) => setKeywords('keywordsInclude', e.target.value)}
-          placeholder="e.g. 2br, parking"
-        />
-      </div>
-      <div className="form-group">
-        <label>Keywords exclude (comma-separated, optional)</label>
-        <input
-          value={(form.config.keywordsExclude ?? []).join(', ')}
-          onChange={(e) => setKeywords('keywordsExclude', e.target.value)}
-          placeholder="e.g. studio, basement"
-        />
-      </div>
-      <div className="form-group">
-        <label>Location keywords (comma-separated, optional)</label>
-        <input
-          value={(form.config.locationKeywords ?? []).join(', ')}
-          onChange={(e) => setKeywords('locationKeywords', e.target.value)}
-          placeholder="e.g. downtown, north side"
-        />
-      </div>
-      {error && <p className="error">{error}</p>}
-      {success && <p className="success">{success}</p>}
-      <div style={{ display: 'flex', gap: '0.5rem' }}>
-        <button onClick={submit}>{editing ? 'Update preset' : 'Create preset'}</button>
         {editing && (
-          <button type="button" className="secondary" onClick={clearForm}>
+          <button type="button" className={btnSecondary} onClick={clearForm}>
             Cancel
           </button>
         )}
-        <button type="button" onClick={() => run()} disabled={running}>
+        <button type="button" className={btnPrimary} onClick={() => run()} disabled={running}>
           Run all presets now
         </button>
       </div>

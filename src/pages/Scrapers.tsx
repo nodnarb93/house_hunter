@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
 import type { ScraperSource, RedfinParams } from '../api'
 import {
   getScrapers,
@@ -23,6 +23,15 @@ const defaultRedfinParams: RedfinParams = {
 type SelectedSourceType = 'rss' | 'redfin' | null
 
 type TestOutput = { ok: boolean; count?: number; message?: string } | null
+
+const SOURCE_OPTIONS = [
+  { id: 'rss' as const, label: 'RSS Feed' },
+  { id: 'redfin' as const, label: 'Redfin' },
+]
+
+const btnCompact = 'rounded-md bg-zinc-800 px-2.5 py-1.5 text-xs text-white hover:bg-zinc-700 disabled:cursor-not-allowed disabled:opacity-50'
+const inputBase =
+  'w-full rounded-md border border-white/10 bg-zinc-900 px-2.5 py-1.5 text-sm text-white placeholder:text-zinc-500 focus:border-blue-400/50 focus:outline-none focus:ring-1 focus:ring-blue-400/30'
 
 function sortSourcesRecentFirst(list: ScraperSource[]): ScraperSource[] {
   return [...list].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
@@ -51,10 +60,11 @@ function rowLabel(s: ScraperSource): string {
 }
 
 function statusDotClass(s: ScraperSource, testingId: number | null): string {
-  if (testingId === s.id) return 'scrapers-status-dot scrapers-status-dot-pending'
-  if (s.last_tested_at == null || s.last_tested_at === '') return 'scrapers-status-dot scrapers-status-dot-unknown'
-  if (s.last_test_ok === 1) return 'scrapers-status-dot scrapers-status-dot-ok'
-  return 'scrapers-status-dot scrapers-status-dot-fail'
+  const base = 'mt-0.5 h-2 w-2 shrink-0 rounded-full'
+  if (testingId === s.id) return `${base} animate-pulse bg-green-500`
+  if (s.last_tested_at == null || s.last_tested_at === '') return `${base} bg-amber-500`
+  if (s.last_test_ok === 1) return `${base} bg-green-500`
+  return `${base} bg-red-500`
 }
 
 function statusDotTitle(s: ScraperSource, testingId: number | null): string {
@@ -62,6 +72,134 @@ function statusDotTitle(s: ScraperSource, testingId: number | null): string {
   if (s.last_tested_at == null || s.last_tested_at === '') return 'Never tested'
   if (s.last_test_ok === 1) return 'Last test passed'
   return 'Last test failed'
+}
+
+function lastTestedDisplay(s: ScraperSource): string {
+  if (s.last_tested_at != null && s.last_tested_at !== '') return formatWhen(s.last_tested_at)
+  return 'Never tested'
+}
+
+function ScraperSourceTypeDropdown({
+  value,
+  onChange,
+}: {
+  value: SelectedSourceType
+  onChange: (v: SelectedSourceType) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const [highlight, setHighlight] = useState(0)
+  const rootRef = useRef<HTMLDivElement>(null)
+  const btnRef = useRef<HTMLButtonElement>(null)
+  const listRef = useRef<HTMLUListElement>(null)
+
+  const displayLabel = value ? (SOURCE_OPTIONS.find((o) => o.id === value)?.label ?? 'Select source type…') : 'Select source type…'
+
+  useEffect(() => {
+    if (!open) return
+    const idx = SOURCE_OPTIONS.findIndex((o) => o.id === value)
+    setHighlight(idx >= 0 ? idx : 0)
+  }, [open, value])
+
+  useEffect(() => {
+    if (open) {
+      const t = requestAnimationFrame(() => listRef.current?.focus())
+      return () => cancelAnimationFrame(t)
+    }
+  }, [open])
+
+  useEffect(() => {
+    if (!open) return
+    const onDoc = (e: MouseEvent) => {
+      const node = e.target as Node
+      if (!rootRef.current?.contains(node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', onDoc)
+    return () => document.removeEventListener('mousedown', onDoc)
+  }, [open])
+
+  const selectOption = (id: 'rss' | 'redfin') => {
+    onChange(id)
+    setOpen(false)
+    btnRef.current?.focus()
+  }
+
+  const onKeyDownButton = (e: KeyboardEvent<HTMLButtonElement>) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault()
+      setOpen((o) => !o)
+    } else if (e.key === 'ArrowDown') {
+      e.preventDefault()
+      setOpen(true)
+    } else if (e.key === 'Escape' && open) {
+      e.preventDefault()
+      setOpen(false)
+    }
+  }
+
+  const onKeyDownList = (e: KeyboardEvent<HTMLUListElement>) => {
+    if (e.key === 'Escape') {
+      e.preventDefault()
+      setOpen(false)
+      btnRef.current?.focus()
+    } else if (e.key === 'ArrowDown') {
+      e.preventDefault()
+      setHighlight((h) => (h + 1) % SOURCE_OPTIONS.length)
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault()
+      setHighlight((h) => (h - 1 + SOURCE_OPTIONS.length) % SOURCE_OPTIONS.length)
+    } else if (e.key === 'Enter') {
+      e.preventDefault()
+      selectOption(SOURCE_OPTIONS[highlight].id)
+    }
+  }
+
+  return (
+    <div ref={rootRef} className="relative max-w-[280px]" data-testid="scraper-source-type-dropdown">
+      <button
+        type="button"
+        ref={btnRef}
+        id="scrapers-type-trigger"
+        className="flex w-full items-center gap-2 rounded-md border border-white/10 bg-zinc-800 px-3 py-1.5 text-left text-sm text-white hover:bg-zinc-700"
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-controls="scrapers-type-listbox"
+        onClick={() => setOpen((o) => !o)}
+        onKeyDown={onKeyDownButton}
+      >
+        <span className="min-w-0 flex-1 truncate">{displayLabel}</span>
+        <span className="shrink-0 text-zinc-400" aria-hidden>
+          ▾
+        </span>
+      </button>
+      {open && (
+        <ul
+          ref={listRef}
+          id="scrapers-type-listbox"
+          role="listbox"
+          aria-labelledby="scrapers-type-trigger"
+          tabIndex={0}
+          className="absolute left-0 right-0 z-50 mt-1 max-h-48 overflow-auto rounded-md border border-white/10 bg-zinc-900 py-1 shadow-lg outline-none"
+          onKeyDown={onKeyDownList}
+        >
+          {SOURCE_OPTIONS.map((o, i) => (
+            <li
+              key={o.id}
+              role="option"
+              aria-selected={value === o.id}
+              className={`cursor-pointer px-3 py-2 text-sm ${
+                highlight === i ? 'bg-zinc-800 text-white' : 'text-zinc-300 hover:bg-zinc-800/50'
+              }`}
+              onMouseEnter={() => setHighlight(i)}
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => selectOption(o.id)}
+            >
+              {o.label}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  )
 }
 
 export default function Scrapers() {
@@ -194,73 +332,65 @@ export default function Scrapers() {
     }
   }
 
-  if (loading) return <p>Loading...</p>
+  if (loading) {
+    return <p className="text-zinc-400">Loading…</p>
+  }
 
   return (
     <>
-      <h1>Scrapers</h1>
-      <p className="scrapers-lede">
+      <h1 className="text-xl font-semibold text-white">Scrapers</h1>
+      <p className="mt-1 max-w-2xl text-sm text-zinc-400">
         Data sources used by the pipeline. Test sparingly—hitting a feed too often can get you blocked.
       </p>
 
-      <section className="scrapers-section" aria-labelledby="scrapers-active-heading">
-        <h2 id="scrapers-active-heading" className="scrapers-section-title">
+      <section className="mt-8" aria-labelledby="scrapers-active-heading">
+        <h2 id="scrapers-active-heading" className="text-sm font-semibold text-zinc-300">
           Active Scrapers
         </h2>
         {sortedSources.length === 0 ? (
-          <p className="scrapers-empty">No scrapers configured yet.</p>
+          <p className="mt-2 text-sm text-zinc-500">No scrapers configured yet.</p>
         ) : (
-          <ul className="scrapers-active-list">
-            {sortedSources.map((s) => {
-              const lastTestedLine =
-                s.last_tested_at != null && s.last_tested_at !== ''
-                  ? `Last tested: ${formatWhen(s.last_tested_at)}`
-                  : 'Never tested'
-              return (
-                <li key={s.id} className="scrapers-row">
-                  <div className="scrapers-row-main">
-                    <span
-                      className={statusDotClass(s, testingId)}
-                      title={statusDotTitle(s, testingId)}
-                      aria-hidden
-                    />
-                    <div className="scrapers-row-text">
-                      <div className="scrapers-row-title">{rowLabel(s)}</div>
-                      <div className="scrapers-row-meta">{lastTestedLine}</div>
-                    </div>
+          <ul className="mt-3 list-none p-0">
+            {sortedSources.map((s) => (
+              <li key={s.id} className="flex items-center gap-4 border-b border-white/10 py-3">
+                <div className="flex min-w-0 flex-1 items-start gap-3">
+                  <span
+                    className={statusDotClass(s, testingId)}
+                    title={statusDotTitle(s, testingId)}
+                    aria-hidden
+                  />
+                  <div className="min-w-0 flex-1">
+                    <div className="break-words text-sm text-white">{rowLabel(s)}</div>
                   </div>
-                  <div className="scrapers-row-actions">
-                    <button
-                      type="button"
-                      className="secondary"
-                      onClick={() => test(s)}
-                      disabled={testingId !== null}
-                      title="Test sparingly (max ~1/hour per source)"
-                    >
-                      {testingId === s.id ? 'Testing…' : 'Test'}
-                    </button>
-                    <button type="button" className="secondary" onClick={() => remove(s.id)}>
-                      Remove
-                    </button>
-                  </div>
-                </li>
-              )
-            })}
+                </div>
+                <span className="ml-auto shrink-0 text-xs text-zinc-500">{lastTestedDisplay(s)}</span>
+                <div className="flex shrink-0 flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    className={btnCompact}
+                    onClick={() => test(s)}
+                    disabled={testingId !== null}
+                    title="Test sparingly (max ~1/hour per source)"
+                  >
+                    {testingId === s.id ? 'Testing…' : 'Test'}
+                  </button>
+                  <button type="button" className={btnCompact} onClick={() => remove(s.id)}>
+                    Remove
+                  </button>
+                </div>
+              </li>
+            ))}
           </ul>
         )}
       </section>
 
       {(testingId !== null || testOutput !== null) && (
-        <section className="scrapers-section" aria-label="Test output">
-          <h2 className="scrapers-section-title">Test Output</h2>
-          <div className="scrapers-terminal">
-            {testingId !== null && (
-              <span className="scrapers-terminal-line scrapers-terminal-pending">Running test…</span>
-            )}
+        <section className="mt-8" aria-label="Test output">
+          <h2 className="text-sm font-semibold text-zinc-300">Test Output</h2>
+          <div className="mt-2 min-h-[2.5rem] rounded-md border border-white/10 bg-zinc-900 px-4 py-3 font-mono text-sm">
+            {testingId !== null && <span className="text-sky-400">Running test…</span>}
             {testOutput !== null && testingId === null && (
-              <span
-                className={`scrapers-terminal-line ${testOutput.ok ? 'scrapers-terminal-ok' : 'scrapers-terminal-err'}`}
-              >
+              <span className={testOutput.ok ? 'text-green-400' : 'text-red-400'}>
                 {testOutput.ok
                   ? `▶ Test passed — ${testOutput.count ?? 0} listing(s) found`
                   : `✗ Test failed: ${testOutput.message ?? 'Unknown error'}`}
@@ -270,120 +400,109 @@ export default function Scrapers() {
         </section>
       )}
 
-      <section className="scrapers-section" aria-labelledby="scrapers-add-heading">
-        <h2 id="scrapers-add-heading" className="scrapers-section-title">
+      <section className="mt-10" aria-labelledby="scrapers-add-heading">
+        <h2 id="scrapers-add-heading" className="text-sm font-semibold text-zinc-300">
           Add New Scraper
         </h2>
-        <div className="form-group">
-          <label htmlFor="scrapers-type-select">Source type</label>
-          <select
-            id="scrapers-type-select"
-            className="form-select scrapers-type-select"
-            value={selectedSourceType ?? ''}
-            onChange={(e) => {
-              const v = e.target.value
-              setSelectedSourceType(v === '' ? null : (v as 'rss' | 'redfin'))
+        <div className="mt-4 max-w-xl">
+          <label htmlFor="scrapers-type-trigger" className="mb-1 block text-sm text-zinc-400">
+            Source type
+          </label>
+          <ScraperSourceTypeDropdown
+            value={selectedSourceType}
+            onChange={(v) => {
+              setSelectedSourceType(v)
               setError('')
               setSuccess('')
             }}
-          >
-            <option value="">Select source type…</option>
-            <option value="redfin">Redfin</option>
-            <option value="rss">RSS / Atom</option>
-          </select>
+          />
         </div>
 
         {selectedSourceType === 'rss' && (
-          <div className="scrapers-add-panel">
-            <p className="form-hint" style={{ marginTop: 0 }}>
-              Paste a full feed URL. Generic RSS and Atom feeds are supported.
-            </p>
-            <div className="form-group">
-              <label htmlFor="scrapers-new-rss-url">Feed URL</label>
-              <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-                <input
-                  id="scrapers-new-rss-url"
-                  type="url"
-                  value={newUrl}
-                  onChange={(e) => setNewUrl(e.target.value)}
-                  placeholder="https://example.com/feed.xml"
-                  style={{ flex: 1, minWidth: '200px' }}
-                />
-                <button type="button" onClick={addRss}>
-                  Add feed
-                </button>
-              </div>
+          <div className="mt-4 max-w-xl">
+            <p className="mb-3 text-sm text-zinc-500">Paste a full feed URL. Generic RSS and Atom feeds are supported.</p>
+            <label htmlFor="scrapers-new-rss-url" className="mb-1 block text-sm text-zinc-400">
+              Feed URL
+            </label>
+            <div className="flex flex-wrap gap-2">
+              <input
+                id="scrapers-new-rss-url"
+                type="url"
+                value={newUrl}
+                onChange={(e) => setNewUrl(e.target.value)}
+                placeholder="https://example.com/feed.xml"
+                className={`${inputBase} min-w-[200px] flex-1`}
+              />
+              <button type="button" className={btnCompact} onClick={addRss}>
+                Add feed
+              </button>
             </div>
           </div>
         )}
 
         {selectedSourceType === 'redfin' && (
-          <div className="scrapers-add-panel">
-            <div className="form-group redfin-form-block">
-              <label className="form-label-main">Location (region is resolved from URL)</label>
-              <p className="form-hint">
+          <div className="mt-4 max-w-xl space-y-4">
+            <div>
+              <label className="mb-1 block text-sm font-medium text-zinc-300">Location (region is resolved from URL)</label>
+              <p className="mb-2 text-sm text-zinc-500">
                 Open Redfin, search for a city or zip, then paste the URL here. We’ll resolve region ID, type, and market for you.
               </p>
-              <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'flex-start' }}>
+              <div className="flex flex-wrap items-start gap-2">
                 <input
                   type="url"
-                  className="form-input-wide"
                   value={redfinLocationUrl}
                   onChange={(e) => setRedfinLocationUrl(e.target.value)}
                   placeholder="https://www.redfin.com/city/4664/OH/Columbus"
-                  style={{ flex: 1, minWidth: 280 }}
+                  className={`${inputBase} min-w-[280px] flex-1`}
                 />
-                <button type="button" onClick={resolveLocation} disabled={resolvingLocation}>
+                <button type="button" className={btnCompact} onClick={resolveLocation} disabled={resolvingLocation}>
                   {resolvingLocation ? 'Resolving…' : 'Resolve'}
                 </button>
               </div>
               {resolvedLocationLabel && (
-                <p className="form-resolved" style={{ marginTop: '0.5rem' }}>
-                  Resolved: <strong>{resolvedLocationLabel}</strong> — region ID is set automatically.
+                <p className="mt-2 text-sm text-green-400">
+                  Resolved: <strong className="font-medium text-green-300">{resolvedLocationLabel}</strong> — region ID is set
+                  automatically.
                 </p>
               )}
             </div>
 
-            <div className="form-group">
-              <label className="form-label-main">Region type</label>
+            <div>
+              <label className="mb-1 block text-sm text-zinc-400">Region type</label>
               <select
                 value={redfinParams.region_type ?? 6}
                 onChange={(e) => setRedfinParams((p) => ({ ...p, region_type: Number(e.target.value) }))}
-                className="form-select"
-                style={{ maxWidth: 200 }}
+                className={`${inputBase} max-w-[200px] cursor-pointer`}
               >
                 {REGION_TYPE_OPTIONS.map((o) => (
-                  <option key={o.value} value={o.value}>
+                  <option key={o.value} value={o.value} className="bg-zinc-900">
                     {o.label}
                   </option>
                 ))}
               </select>
             </div>
 
-            <div className="form-group">
-              <label className="form-label-main">Market (slug)</label>
-              <p className="form-hint">e.g. columbus, sfbay, dc — often filled from Resolve.</p>
+            <div>
+              <label className="mb-1 block text-sm text-zinc-400">Market (slug)</label>
+              <p className="mb-1 text-sm text-zinc-500">e.g. columbus, sfbay, dc — often filled from Resolve.</p>
               <input
                 type="text"
                 value={redfinParams.market ?? ''}
                 onChange={(e) => setRedfinParams((p) => ({ ...p, market: e.target.value }))}
                 placeholder="columbus"
-                className="form-input-wide"
-                style={{ maxWidth: 240 }}
+                className={`${inputBase} max-w-[240px]`}
               />
             </div>
 
-            <div style={{ marginTop: '0.75rem' }}>
-              <button type="button" onClick={addRedfin}>
-                Add Redfin source
-              </button>
-            </div>
+            <button type="button" className={btnCompact} onClick={addRedfin}>
+              Add Redfin source
+            </button>
           </div>
         )}
       </section>
 
-      {error && <p className="error">{error}</p>}
-      {success && <p className="success">{success}</p>}
+      {error && <p className="mt-4 text-sm text-red-400">{error}</p>}
+      {success && <p className="mt-4 text-sm text-green-400">{success}</p>}
     </>
   )
 }
