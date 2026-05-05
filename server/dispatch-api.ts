@@ -1,5 +1,4 @@
 import type { Env } from './types'
-import { handleFilters } from './api/filters'
 import { handleSchedule } from './api/schedule'
 import { handleSettings } from './api/settings'
 import { handleRun } from './api/run'
@@ -27,10 +26,8 @@ export async function dispatchApi(request: Request, env: Env): Promise<Response>
     return Response.json({ ok: true })
   }
 
-  if (p === '/api/filter-presets' || p === '/api/filter-presets/') return handleFilters(request, env)
   if (p.startsWith('/api/scraper-sources')) return handleScrapers(request, env)
   if (p.startsWith('/api/scrapers')) return handleScrapers(request, env)
-  if (p === '/api/filters' || p === '/api/filters/') return handleFilters(request, env)
   if (p === '/api/schedule' || p === '/api/schedule/') return handleSchedule(request, env)
   if (p === '/api/settings' || p === '/api/settings/') return handleSettings(request, env)
   if (p === '/api/run' || p === '/api/run/') return handleRun(request, env)
