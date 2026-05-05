@@ -1,5 +1,12 @@
 import type { Env, Listing } from '../types'
 
+const LISTING_STAGES = ['interested', 'contacted', 'tour_scheduled', 'rejected'] as const
+type ListingStage = (typeof LISTING_STAGES)[number]
+
+function isListingStage(value: unknown): value is ListingStage {
+  return typeof value === 'string' && (LISTING_STAGES as readonly string[]).includes(value)
+}
+
 function parseOptionalInt(value: string | null): number | undefined {
   if (value == null || value === '') return undefined
   const n = Number.parseInt(value, 10)
@@ -48,7 +55,7 @@ export async function handleListings(request: Request, env: Env): Promise<Respon
     const listParams = [...params, limit, offset]
     const rows = await env.DB
       .prepare(
-        `SELECT id, preset_id, run_id, title, link, price_cents, address, beds, baths, image_url, scraped_at, seen, bookmarked
+        `SELECT id, preset_id, run_id, title, link, price_cents, address, beds, baths, image_url, scraped_at, seen, bookmarked, stage
          FROM listings WHERE ${whereSql}
          ORDER BY scraped_at DESC
          LIMIT ? OFFSET ?`
@@ -62,9 +69,9 @@ export async function handleListings(request: Request, env: Env): Promise<Respon
   const patchMatch = path.match(/^\/api\/listings\/(\d+)$/)
   if (patchMatch && request.method === 'PATCH') {
     const id = Number(patchMatch[1])
-    let body: { seen?: unknown; bookmarked?: unknown }
+    let body: { seen?: unknown; bookmarked?: unknown; stage?: unknown }
     try {
-      body = (await request.json()) as { seen?: unknown; bookmarked?: unknown }
+      body = (await request.json()) as { seen?: unknown; bookmarked?: unknown; stage?: unknown }
     } catch {
       return Response.json({ error: 'Invalid JSON' }, { status: 400 })
     }
@@ -79,6 +86,13 @@ export async function handleListings(request: Request, env: Env): Promise<Respon
       updates.push('bookmarked = ?')
       values.push(body.bookmarked)
     }
+    if (body.stage !== undefined) {
+      if (!isListingStage(body.stage)) {
+        return Response.json({ error: 'Invalid stage' }, { status: 400 })
+      }
+      updates.push('stage = ?')
+      values.push(body.stage)
+    }
     if (!updates.length) {
       return Response.json({ error: 'No valid fields to update' }, { status: 400 })
     }
@@ -88,7 +102,7 @@ export async function handleListings(request: Request, env: Env): Promise<Respon
 
     const row = await env.DB
       .prepare(
-        `SELECT id, preset_id, run_id, title, link, price_cents, address, beds, baths, image_url, scraped_at, seen, bookmarked
+        `SELECT id, preset_id, run_id, title, link, price_cents, address, beds, baths, image_url, scraped_at, seen, bookmarked, stage
          FROM listings WHERE id = ?`
       )
       .bind(id)
