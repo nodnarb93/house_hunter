@@ -41,6 +41,31 @@ const ALL_DAY_SLOTS: string[] = (() => {
   return out
 })()
 
+const SLOT_COLORS = [
+  'bg-blue-600',
+  'bg-emerald-600',
+  'bg-purple-600',
+  'bg-amber-500',
+  'bg-rose-600',
+  'bg-cyan-600',
+  'bg-orange-500',
+] as const
+
+const HOUR_LABELS = [
+  { label: '12am', startSlot: 0 },
+  { label: '2am', startSlot: 4 },
+  { label: '4am', startSlot: 8 },
+  { label: '6am', startSlot: 12 },
+  { label: '8am', startSlot: 16 },
+  { label: '10am', startSlot: 20 },
+  { label: '12pm', startSlot: 24 },
+  { label: '2pm', startSlot: 28 },
+  { label: '4pm', startSlot: 32 },
+  { label: '6pm', startSlot: 36 },
+  { label: '8pm', startSlot: 40 },
+  { label: '10pm', startSlot: 44 },
+] as const
+
 function formatSlotAmPm(hhmm: string): string {
   const [hs, ms] = hhmm.split(':')
   const h = Number(hs)
@@ -296,6 +321,14 @@ function ScraperSourceTypeDropdown({
 }
 
 function ScheduleOverview({ sources }: { sources: ScraperSource[] }) {
+  const colorMap = new Map(
+    [...sources].sort((a, b) => a.id - b.id).map((s, i) => [s.id, SLOT_COLORS[i % SLOT_COLORS.length]]),
+  )
+  const colorFor = (id: number) => colorMap.get(id) ?? 'bg-zinc-800'
+  const activeSources = sources
+    .filter((s) => (s.schedule_slots?.length ?? 0) > 0)
+    .sort((a, b) => a.id - b.id)
+
   return (
     <section className="mt-8 max-w-full" data-testid="schedule-overview" aria-labelledby="schedule-overview-heading">
       <h2 id="schedule-overview-heading" className="text-sm font-semibold text-zinc-300">
@@ -304,32 +337,61 @@ function ScheduleOverview({ sources }: { sources: ScraperSource[] }) {
       <p className="mt-1 max-w-3xl text-xs text-zinc-500">
         Local time, 30-minute slots (read-only). A scraper runs when the clock matches one of its selected slots.
       </p>
-      <div
-        className="mt-3 flex max-w-full w-full min-w-0 gap-px overflow-x-auto rounded-md border border-white/10 bg-zinc-900 p-1"
-        role="list"
-        aria-label="Twenty-four hour scraper schedule"
-      >
-        {ALL_DAY_SLOTS.map((slot) => {
-          const owner = scraperForSlot(slot, sources)
-          return (
+      <div className="mt-3 w-full min-w-0 overflow-hidden rounded-md border border-white/10 bg-zinc-900 p-1">
+        <div className="grid" style={{ gridTemplateColumns: 'repeat(48, minmax(0, 1fr))' }}>
+          {HOUR_LABELS.map(({ label }) => (
             <div
-              key={slot}
-              data-testid={`schedule-slot-cell-${slot}`}
-              title={owner ? rowLabel(owner) : slot}
-              className={`flex h-14 min-w-[2.25rem] flex-1 flex-col justify-center overflow-hidden border border-transparent px-0.5 text-center text-[10px] leading-tight ${
-                owner ? 'bg-zinc-800 text-zinc-200' : 'bg-zinc-950 text-zinc-600'
-              }`}
-              role="listitem"
+              key={label}
+              data-testid="hour-label"
+              style={{ gridColumn: 'span 4' }}
+              className="truncate pl-0.5 text-[9px] text-zinc-500"
             >
-              {owner ? (
-                <span className="line-clamp-3 break-words">{rowLabel(owner)}</span>
-              ) : (
-                <span aria-hidden>·</span>
-              )}
+              {label}
             </div>
-          )
-        })}
+          ))}
+        </div>
+        <div
+          className="grid"
+          style={{ gridTemplateColumns: 'repeat(48, minmax(0, 1fr))' }}
+          role="list"
+          aria-label="Twenty-four hour scraper schedule"
+        >
+          {ALL_DAY_SLOTS.map((slot) => {
+            const owner = scraperForSlot(slot, sources)
+            return (
+              <div
+                key={slot}
+                data-testid={`schedule-slot-cell-${slot}`}
+                title={owner ? rowLabel(owner) : slot}
+                className={`h-14 overflow-hidden border border-transparent text-center text-[10px] leading-tight ${
+                  owner ? `${colorFor(owner.id)} text-zinc-200` : 'bg-zinc-950 text-zinc-600'
+                }`}
+                role="listitem"
+              >
+                {owner ? null : <span aria-hidden>·</span>}
+              </div>
+            )
+          })}
+        </div>
       </div>
+      {activeSources.length > 0 ? (
+        <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1">
+          {activeSources.map((src) => (
+            <div key={src.id} className="flex items-center gap-1.5 text-xs text-zinc-400">
+              <span className={`inline-block h-3 w-3 flex-shrink-0 rounded-sm ${colorFor(src.id)}`} />
+              <span>
+                {rowLabel(src)} —{' '}
+                {[...(src.schedule_slots ?? [])]
+                  .sort((a, b) => ALL_DAY_SLOTS.indexOf(a) - ALL_DAY_SLOTS.indexOf(b))
+                  .map(formatSlotAmPm)
+                  .join(', ')}
+              </span>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p className="mt-2 text-xs text-zinc-600">No scrapers have scheduled slots.</p>
+      )}
     </section>
   )
 }
