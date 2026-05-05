@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useMemo, useState, type DragEvent } from 'react'
+import type { HouseHunt } from '../api'
+import { getHouseHunts } from '../api'
 
 const STAGES = [
   { key: 'interested' as const, label: 'Interested' },
@@ -10,6 +12,7 @@ const STAGES = [
 interface ListingRow {
   id: number
   preset_id: number | null
+  hunt_id: number | null
   run_id: number | null
   title: string
   link: string
@@ -39,17 +42,22 @@ function formatScrapedDate(iso: string): string {
 
 export default function Triage() {
   const [listings, setListings] = useState<ListingRow[]>([])
+  const [hunts, setHunts] = useState<HouseHunt[]>([])
   const [loading, setLoading] = useState(true)
+
+  const huntMap = useMemo(() => new Map(hunts.map((h) => [h.id, h.name])), [hunts])
 
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      const r = await fetch('/api/listings?bookmarked=1')
+      const [r, huntList] = await Promise.all([fetch('/api/listings?bookmarked=1'), getHouseHunts()])
       if (!r.ok) throw new Error(await r.text())
       const data = (await r.json()) as { listings: ListingRow[] }
       setListings(data.listings ?? [])
+      setHunts(huntList)
     } catch {
       setListings([])
+      setHunts([])
     } finally {
       setLoading(false)
     }
@@ -147,8 +155,16 @@ export default function Triage() {
                       key={l.id}
                       draggable
                       onDragStart={(e) => onDragStart(e, l.id)}
-                      className="cursor-grab rounded-md border border-white/10 bg-zinc-900 px-3 py-2 active:cursor-grabbing"
+                      className="flex cursor-grab flex-col rounded-md border border-white/10 bg-zinc-900 px-3 py-2 active:cursor-grabbing"
                     >
+                      {l.hunt_id != null ? (
+                        <span
+                          data-testid="hunt-name-badge"
+                          className="mb-1 self-start rounded-full bg-zinc-100/10 px-2 py-0.5 text-xs text-zinc-400"
+                        >
+                          {huntMap.get(l.hunt_id) ?? 'Unknown Hunt'}
+                        </span>
+                      ) : null}
                       <div className="line-clamp-1 text-sm font-medium text-white" title={l.title}>
                         {l.title}
                       </div>

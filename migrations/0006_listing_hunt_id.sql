@@ -1,0 +1,1 @@
+ALTER TABLE listings ADD COLUMN hunt_id INTEGER REFERENCES house_hunts(id) ON DELETE SET NULL;

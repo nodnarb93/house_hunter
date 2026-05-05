@@ -17,6 +17,24 @@ function formatPrice(cents: number | null): string {
 
 type DraftNotification = Omit<HuntNotification, 'id'> & { id?: number }
 
+function GearIcon(props: { className?: string }) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 24 24"
+      fill="currentColor"
+      className={props.className}
+      aria-hidden
+    >
+      <path
+        fillRule="evenodd"
+        d="M11.078 2.25c-.917 0-1.699.663-1.85 1.557L9.05 4.52c-.217.896-.666 1.718-1.28 2.46a12.05 12.05 0 0 0-2.272 1.213c-.797.45-1.69.699-2.598.699H3.6a1.125 1.125 0 0 0-.98.607l-.108.222a12.032 12.032 0 0 0-.697 2.81c-.03.315-.03.63 0 .945a12.032 12.032 0 0 0 .697 2.81l.108.222c.196.402.59.674 1.02.707h.211c.907 0 1.8.249 2.598.699a12.05 12.05 0 0 0 2.272 1.213c.614.742 1.063 1.564 1.28 2.46l.146.713c.151.894.933 1.557 1.85 1.557h1.844c.916 0 1.698-.663 1.85-1.557l.145-.713c.217-.896.666-1.718 1.279-2.46a12.05 12.05 0 0 0 2.273-1.213c.797-.45 1.69-.699 2.598-.699h.168a1.125 1.125 0 0 0 .98-.607l.108-.222a12.032 12.032 0 0 0 .697-2.81c.03-.315.03-.63 0-.945a12.032 12.032 0 0 0-.697-2.81l-.108-.222a1.125 1.125 0 0 0-.98-.607h-.168c-.907 0-1.8-.249-2.598-.699a12.05 12.05 0 0 0-2.273-1.213c-.613-.742-1.062-1.564-1.279-2.46l-.145-.713C13.276 2.913 12.494 2.25 11.578 2.25h-1.5ZM12 8.25a3.75 3.75 0 1 0 0 7.5 3.75 3.75 0 0 0 0-7.5Z"
+        clipRule="evenodd"
+      />
+    </svg>
+  )
+}
+
 export default function HuntDetail() {
   const { id: idParam } = useParams()
   const huntId = useMemo(() => {
@@ -30,6 +48,7 @@ export default function HuntDetail() {
   const [results, setResults] = useState<HuntResultListing[]>([])
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const [drawerOpen, setDrawerOpen] = useState(false)
 
   const [nameDraft, setNameDraft] = useState('')
   const [minPrice, setMinPrice] = useState('')
@@ -177,6 +196,30 @@ export default function HuntDetail() {
     })
   }
 
+  async function toggleResultBookmark(r: HuntResultListing) {
+    const cur = r.bookmarked === 1 ? 1 : 0
+    const next: 0 | 1 = cur === 1 ? 0 : 1
+    setBusy(true)
+    setError(null)
+    try {
+      const res = await fetch(`/api/listings/${r.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bookmarked: next }),
+      })
+      if (!res.ok) {
+        setError(await res.text())
+        return
+      }
+      const updated = (await res.json()) as { bookmarked: number }
+      setResults((prev) => prev.map((row) => (row.id === r.id ? { ...row, bookmarked: updated.bookmarked } : row)))
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Request failed')
+    } finally {
+      setBusy(false)
+    }
+  }
+
   function toggleScraper(sid: number) {
     setScraperIds((prev) => (prev.includes(sid) ? prev.filter((x) => x !== sid) : [...prev, sid].sort((a, b) => a - b)))
   }
@@ -210,234 +253,269 @@ export default function HuntDetail() {
     return <p className="text-zinc-400">Loading…</p>
   }
 
+  const configDrawer = drawerOpen ? (
+    <div
+      className="fixed inset-y-0 right-0 z-50 w-96 overflow-y-auto border-l border-white/10 bg-zinc-900 shadow-xl"
+      data-testid="hunt-config-drawer"
+    >
+      <div className="flex items-center justify-end border-b border-white/10 px-3 py-2">
+        <button
+          type="button"
+          data-testid="close-config-drawer"
+          onClick={() => setDrawerOpen(false)}
+          className="rounded-md px-2 py-1 text-lg leading-none text-zinc-400 hover:bg-zinc-800 hover:text-white"
+          aria-label="Close configuration"
+        >
+          ×
+        </button>
+      </div>
+      <div className="space-y-6 p-4">
+        <section className="rounded-lg border border-white/10 bg-zinc-950/60 p-4">
+          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-zinc-500">Name</h2>
+          <div className="flex flex-wrap items-end gap-2">
+            <label className="flex min-w-[12rem] flex-1 flex-col gap-1 text-sm text-zinc-400">
+              Hunt name
+              <input
+                data-testid="hunt-detail-name-input"
+                value={nameDraft}
+                onChange={(e) => setNameDraft(e.target.value)}
+                className="rounded-md border border-white/10 bg-zinc-950 px-3 py-2 text-white outline-none focus:border-zinc-500"
+              />
+            </label>
+            <button
+              type="button"
+              data-testid="hunt-detail-save-name"
+              disabled={busy}
+              onClick={() => void saveName()}
+              className="rounded-md bg-white px-4 py-2 text-sm font-medium text-zinc-900 hover:bg-zinc-200 disabled:opacity-50"
+            >
+              Save name
+            </button>
+          </div>
+        </section>
+
+        <section className="rounded-lg border border-white/10 bg-zinc-950/60 p-4">
+          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-zinc-500">Filters</h2>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <label className="flex flex-col gap-1 text-sm text-zinc-400">
+              Min price ($)
+              <input
+                data-testid="hunt-detail-min-price"
+                type="number"
+                inputMode="numeric"
+                value={minPrice}
+                onChange={(e) => setMinPrice(e.target.value)}
+                className="rounded-md border border-white/10 bg-zinc-950 px-3 py-2 text-white outline-none focus:border-zinc-500"
+              />
+            </label>
+            <label className="flex flex-col gap-1 text-sm text-zinc-400">
+              Max price ($)
+              <input
+                data-testid="hunt-detail-max-price"
+                type="number"
+                inputMode="numeric"
+                value={maxPrice}
+                onChange={(e) => setMaxPrice(e.target.value)}
+                className="rounded-md border border-white/10 bg-zinc-950 px-3 py-2 text-white outline-none focus:border-zinc-500"
+              />
+            </label>
+            <label className="flex flex-col gap-1 text-sm text-zinc-400">
+              Min beds
+              <input
+                data-testid="hunt-detail-min-beds"
+                type="number"
+                inputMode="numeric"
+                value={minBeds}
+                onChange={(e) => setMinBeds(e.target.value)}
+                className="rounded-md border border-white/10 bg-zinc-950 px-3 py-2 text-white outline-none focus:border-zinc-500"
+              />
+            </label>
+            <label className="flex flex-col gap-1 text-sm text-zinc-400">
+              Min baths
+              <input
+                data-testid="hunt-detail-min-baths"
+                type="number"
+                inputMode="decimal"
+                value={minBaths}
+                onChange={(e) => setMinBaths(e.target.value)}
+                className="rounded-md border border-white/10 bg-zinc-950 px-3 py-2 text-white outline-none focus:border-zinc-500"
+              />
+            </label>
+            <label className="flex flex-col gap-1 text-sm text-zinc-400 sm:col-span-2">
+              Keywords (comma-separated)
+              <input
+                data-testid="hunt-detail-keywords"
+                value={keywords}
+                onChange={(e) => setKeywords(e.target.value)}
+                className="rounded-md border border-white/10 bg-zinc-950 px-3 py-2 text-white outline-none focus:border-zinc-500"
+              />
+            </label>
+            <label className="flex flex-col gap-1 text-sm text-zinc-400 sm:col-span-2">
+              Exclude keywords (comma-separated)
+              <input
+                data-testid="hunt-detail-keywords-exclude"
+                value={keywordsExclude}
+                onChange={(e) => setKeywordsExclude(e.target.value)}
+                className="rounded-md border border-white/10 bg-zinc-950 px-3 py-2 text-white outline-none focus:border-zinc-500"
+              />
+            </label>
+            <label className="flex flex-col gap-1 text-sm text-zinc-400 sm:col-span-2">
+              Location
+              <input
+                data-testid="hunt-detail-location"
+                value={locationText}
+                onChange={(e) => setLocationText(e.target.value)}
+                className="rounded-md border border-white/10 bg-zinc-950 px-3 py-2 text-white outline-none focus:border-zinc-500"
+              />
+            </label>
+          </div>
+          <button
+            type="button"
+            data-testid="hunt-detail-save-filters"
+            disabled={busy}
+            onClick={() => void saveFilters()}
+            className="mt-3 rounded-md bg-white px-4 py-2 text-sm font-medium text-zinc-900 hover:bg-zinc-200 disabled:opacity-50"
+          >
+            Save filters
+          </button>
+        </section>
+
+        <section className="rounded-lg border border-white/10 bg-zinc-950/60 p-4">
+          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-zinc-500">Scrapers</h2>
+          {scrapers.length === 0 ? (
+            <p className="text-sm text-zinc-500">No scrapers configured yet.</p>
+          ) : (
+            <ul className="max-h-56 space-y-2 overflow-y-auto">
+              {scrapers.map((s) => (
+                <li key={s.id} className="flex items-center gap-2 text-sm">
+                  <input
+                    id={`hunt-scraper-${s.id}`}
+                    data-testid={`hunt-detail-scraper-${s.id}`}
+                    type="checkbox"
+                    checked={scraperIds.includes(s.id)}
+                    onChange={() => toggleScraper(s.id)}
+                    className="rounded border-white/20 bg-zinc-950"
+                  />
+                  <label htmlFor={`hunt-scraper-${s.id}`} className="cursor-pointer text-zinc-300">
+                    #{s.id} — {s.kind} — <span className="text-zinc-500">{s.url}</span>
+                  </label>
+                </li>
+              ))}
+            </ul>
+          )}
+          <button
+            type="button"
+            data-testid="hunt-detail-save-scrapers"
+            disabled={busy}
+            onClick={() => void saveScrapers()}
+            className="mt-3 rounded-md bg-white px-4 py-2 text-sm font-medium text-zinc-900 hover:bg-zinc-200 disabled:opacity-50"
+          >
+            Save scrapers
+          </button>
+        </section>
+
+        <section className="rounded-lg border border-white/10 bg-zinc-950/60 p-4">
+          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-zinc-500">Notifications</h2>
+          <ul className="mb-3 space-y-2" data-testid="hunt-detail-notification-list">
+            {notificationsDraft.map((n, i) => (
+              <li
+                key={n.id ?? `new-${i}-${n.destination}`}
+                data-testid={`hunt-detail-notification-row-${i}`}
+                className="flex flex-wrap items-center gap-2 rounded-md border border-white/5 bg-zinc-950/80 px-3 py-2 text-sm"
+              >
+                <span className="text-zinc-400">{n.type}</span>
+                <span className="min-w-0 flex-1 truncate text-zinc-200">{n.destination}</span>
+                <label className="flex items-center gap-1 text-zinc-400">
+                  <input
+                    type="checkbox"
+                    checked={n.enabled}
+                    onChange={() => toggleNotifEnabled(i)}
+                    className="rounded border-white/20 bg-zinc-950"
+                  />
+                  enabled
+                </label>
+                <button
+                  type="button"
+                  onClick={() => removeNotification(i)}
+                  className="text-xs text-red-400 hover:underline"
+                >
+                  Delete
+                </button>
+              </li>
+            ))}
+          </ul>
+          <div className="flex flex-wrap items-end gap-2 border-t border-white/10 pt-3">
+            <label className="text-sm text-zinc-400">
+              Type
+              <select
+                data-testid="hunt-detail-notification-type"
+                value={newNotifType}
+                onChange={(e) => setNewNotifType(e.target.value as HuntNotification['type'])}
+                className="ml-1 rounded-md border border-white/10 bg-zinc-950 px-2 py-1.5 text-white outline-none focus:border-zinc-500"
+              >
+                <option value="webhook">webhook</option>
+                <option value="discord">discord</option>
+                <option value="email">email</option>
+              </select>
+            </label>
+            <input
+              data-testid="hunt-detail-notification-destination"
+              type="text"
+              placeholder="Destination URL or address"
+              value={newNotifDest}
+              onChange={(e) => setNewNotifDest(e.target.value)}
+              className="min-w-[12rem] flex-1 rounded-md border border-white/10 bg-zinc-950 px-3 py-2 text-sm text-white outline-none focus:border-zinc-500"
+            />
+            <button
+              type="button"
+              data-testid="hunt-detail-add-notification"
+              disabled={busy}
+              onClick={addNotificationRow}
+              className="rounded-md border border-white/20 px-3 py-2 text-sm text-zinc-200 hover:bg-zinc-800 disabled:opacity-50"
+            >
+              Add notification
+            </button>
+          </div>
+          <button
+            type="button"
+            data-testid="hunt-detail-save-notifications"
+            disabled={busy}
+            onClick={() => void saveNotifications()}
+            className="mt-3 rounded-md bg-white px-4 py-2 text-sm font-medium text-zinc-900 hover:bg-zinc-200 disabled:opacity-50"
+          >
+            Save notifications
+          </button>
+        </section>
+      </div>
+    </div>
+  ) : null
+
   return (
-    <div className="mx-auto max-w-4xl space-y-8 text-zinc-100">
-      <div>
-        <h1 className="mb-4 text-xl font-semibold text-white">House hunt</h1>
-        {error ? <p className="mb-2 text-sm text-red-400">{error}</p> : null}
+    <div className="mx-auto max-w-6xl space-y-6 text-zinc-100">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-xl font-semibold text-white">{detail?.name ?? 'House hunt'}</h1>
+          {error ? <p className="mt-2 text-sm text-red-400">{error}</p> : null}
+        </div>
+        {detail ? (
+          <button
+            type="button"
+            data-testid="open-config-drawer"
+            disabled={busy}
+            onClick={() => setDrawerOpen(true)}
+            className="rounded-md border border-white/15 p-2 text-zinc-300 hover:bg-zinc-800 disabled:opacity-50"
+            title="Configure hunt"
+            aria-label="Open hunt configuration"
+          >
+            <GearIcon className="h-5 w-5" />
+          </button>
+        ) : null}
       </div>
 
       {detail ? (
         <>
-          <section className="rounded-lg border border-white/10 bg-zinc-900/60 p-4">
-            <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-zinc-500">Name</h2>
-            <div className="flex flex-wrap items-end gap-2">
-              <label className="flex min-w-[12rem] flex-1 flex-col gap-1 text-sm text-zinc-400">
-                Hunt name
-                <input
-                  data-testid="hunt-detail-name-input"
-                  value={nameDraft}
-                  onChange={(e) => setNameDraft(e.target.value)}
-                  className="rounded-md border border-white/10 bg-zinc-950 px-3 py-2 text-white outline-none focus:border-zinc-500"
-                />
-              </label>
-              <button
-                type="button"
-                data-testid="hunt-detail-save-name"
-                disabled={busy}
-                onClick={() => void saveName()}
-                className="rounded-md bg-white px-4 py-2 text-sm font-medium text-zinc-900 hover:bg-zinc-200 disabled:opacity-50"
-              >
-                Save name
-              </button>
-            </div>
-          </section>
-
-          <section className="rounded-lg border border-white/10 bg-zinc-900/60 p-4">
-            <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-zinc-500">Filters</h2>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <label className="flex flex-col gap-1 text-sm text-zinc-400">
-                Min price ($)
-                <input
-                  data-testid="hunt-detail-min-price"
-                  type="number"
-                  inputMode="numeric"
-                  value={minPrice}
-                  onChange={(e) => setMinPrice(e.target.value)}
-                  className="rounded-md border border-white/10 bg-zinc-950 px-3 py-2 text-white outline-none focus:border-zinc-500"
-                />
-              </label>
-              <label className="flex flex-col gap-1 text-sm text-zinc-400">
-                Max price ($)
-                <input
-                  data-testid="hunt-detail-max-price"
-                  type="number"
-                  inputMode="numeric"
-                  value={maxPrice}
-                  onChange={(e) => setMaxPrice(e.target.value)}
-                  className="rounded-md border border-white/10 bg-zinc-950 px-3 py-2 text-white outline-none focus:border-zinc-500"
-                />
-              </label>
-              <label className="flex flex-col gap-1 text-sm text-zinc-400">
-                Min beds
-                <input
-                  data-testid="hunt-detail-min-beds"
-                  type="number"
-                  inputMode="numeric"
-                  value={minBeds}
-                  onChange={(e) => setMinBeds(e.target.value)}
-                  className="rounded-md border border-white/10 bg-zinc-950 px-3 py-2 text-white outline-none focus:border-zinc-500"
-                />
-              </label>
-              <label className="flex flex-col gap-1 text-sm text-zinc-400">
-                Min baths
-                <input
-                  data-testid="hunt-detail-min-baths"
-                  type="number"
-                  inputMode="decimal"
-                  value={minBaths}
-                  onChange={(e) => setMinBaths(e.target.value)}
-                  className="rounded-md border border-white/10 bg-zinc-950 px-3 py-2 text-white outline-none focus:border-zinc-500"
-                />
-              </label>
-              <label className="flex flex-col gap-1 text-sm text-zinc-400 sm:col-span-2">
-                Keywords (comma-separated)
-                <input
-                  data-testid="hunt-detail-keywords"
-                  value={keywords}
-                  onChange={(e) => setKeywords(e.target.value)}
-                  className="rounded-md border border-white/10 bg-zinc-950 px-3 py-2 text-white outline-none focus:border-zinc-500"
-                />
-              </label>
-              <label className="flex flex-col gap-1 text-sm text-zinc-400 sm:col-span-2">
-                Exclude keywords (comma-separated)
-                <input
-                  data-testid="hunt-detail-keywords-exclude"
-                  value={keywordsExclude}
-                  onChange={(e) => setKeywordsExclude(e.target.value)}
-                  className="rounded-md border border-white/10 bg-zinc-950 px-3 py-2 text-white outline-none focus:border-zinc-500"
-                />
-              </label>
-              <label className="flex flex-col gap-1 text-sm text-zinc-400 sm:col-span-2">
-                Location
-                <input
-                  data-testid="hunt-detail-location"
-                  value={locationText}
-                  onChange={(e) => setLocationText(e.target.value)}
-                  className="rounded-md border border-white/10 bg-zinc-950 px-3 py-2 text-white outline-none focus:border-zinc-500"
-                />
-              </label>
-            </div>
-            <button
-              type="button"
-              data-testid="hunt-detail-save-filters"
-              disabled={busy}
-              onClick={() => void saveFilters()}
-              className="mt-3 rounded-md bg-white px-4 py-2 text-sm font-medium text-zinc-900 hover:bg-zinc-200 disabled:opacity-50"
-            >
-              Save filters
-            </button>
-          </section>
-
-          <section className="rounded-lg border border-white/10 bg-zinc-900/60 p-4">
-            <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-zinc-500">Scrapers</h2>
-            {scrapers.length === 0 ? (
-              <p className="text-sm text-zinc-500">No scrapers configured yet.</p>
-            ) : (
-              <ul className="max-h-56 space-y-2 overflow-y-auto">
-                {scrapers.map((s) => (
-                  <li key={s.id} className="flex items-center gap-2 text-sm">
-                    <input
-                      id={`hunt-scraper-${s.id}`}
-                      data-testid={`hunt-detail-scraper-${s.id}`}
-                      type="checkbox"
-                      checked={scraperIds.includes(s.id)}
-                      onChange={() => toggleScraper(s.id)}
-                      className="rounded border-white/20 bg-zinc-950"
-                    />
-                    <label htmlFor={`hunt-scraper-${s.id}`} className="cursor-pointer text-zinc-300">
-                      #{s.id} — {s.kind} — <span className="text-zinc-500">{s.url}</span>
-                    </label>
-                  </li>
-                ))}
-              </ul>
-            )}
-            <button
-              type="button"
-              data-testid="hunt-detail-save-scrapers"
-              disabled={busy}
-              onClick={() => void saveScrapers()}
-              className="mt-3 rounded-md bg-white px-4 py-2 text-sm font-medium text-zinc-900 hover:bg-zinc-200 disabled:opacity-50"
-            >
-              Save scrapers
-            </button>
-          </section>
-
-          <section className="rounded-lg border border-white/10 bg-zinc-900/60 p-4">
-            <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-zinc-500">Notifications</h2>
-            <ul className="mb-3 space-y-2" data-testid="hunt-detail-notification-list">
-              {notificationsDraft.map((n, i) => (
-                <li
-                  key={n.id ?? `new-${i}-${n.destination}`}
-                  data-testid={`hunt-detail-notification-row-${i}`}
-                  className="flex flex-wrap items-center gap-2 rounded-md border border-white/5 bg-zinc-950/80 px-3 py-2 text-sm"
-                >
-                  <span className="text-zinc-400">{n.type}</span>
-                  <span className="min-w-0 flex-1 truncate text-zinc-200">{n.destination}</span>
-                  <label className="flex items-center gap-1 text-zinc-400">
-                    <input
-                      type="checkbox"
-                      checked={n.enabled}
-                      onChange={() => toggleNotifEnabled(i)}
-                      className="rounded border-white/20 bg-zinc-950"
-                    />
-                    enabled
-                  </label>
-                  <button
-                    type="button"
-                    onClick={() => removeNotification(i)}
-                    className="text-xs text-red-400 hover:underline"
-                  >
-                    Delete
-                  </button>
-                </li>
-              ))}
-            </ul>
-            <div className="flex flex-wrap items-end gap-2 border-t border-white/10 pt-3">
-              <label className="text-sm text-zinc-400">
-                Type
-                <select
-                  data-testid="hunt-detail-notification-type"
-                  value={newNotifType}
-                  onChange={(e) => setNewNotifType(e.target.value as HuntNotification['type'])}
-                  className="ml-1 rounded-md border border-white/10 bg-zinc-950 px-2 py-1.5 text-white outline-none focus:border-zinc-500"
-                >
-                  <option value="webhook">webhook</option>
-                  <option value="discord">discord</option>
-                  <option value="email">email</option>
-                </select>
-              </label>
-              <input
-                data-testid="hunt-detail-notification-destination"
-                type="text"
-                placeholder="Destination URL or address"
-                value={newNotifDest}
-                onChange={(e) => setNewNotifDest(e.target.value)}
-                className="min-w-[12rem] flex-1 rounded-md border border-white/10 bg-zinc-950 px-3 py-2 text-sm text-white outline-none focus:border-zinc-500"
-              />
-              <button
-                type="button"
-                data-testid="hunt-detail-add-notification"
-                disabled={busy}
-                onClick={addNotificationRow}
-                className="rounded-md border border-white/20 px-3 py-2 text-sm text-zinc-200 hover:bg-zinc-800 disabled:opacity-50"
-              >
-                Add notification
-              </button>
-            </div>
-            <button
-              type="button"
-              data-testid="hunt-detail-save-notifications"
-              disabled={busy}
-              onClick={() => void saveNotifications()}
-              className="mt-3 rounded-md bg-white px-4 py-2 text-sm font-medium text-zinc-900 hover:bg-zinc-200 disabled:opacity-50"
-            >
-              Save notifications
-            </button>
-          </section>
-
-          <section className="rounded-lg border border-white/10 bg-zinc-900/60 p-4">
-            <div className="mb-3 flex items-center justify-between gap-2">
+          <div className="rounded-lg border border-white/10 bg-zinc-900/60">
+            <div className="flex items-center justify-between gap-2 border-b border-white/10 px-4 py-3">
               <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-500">Results</h2>
               <button
                 type="button"
@@ -450,42 +528,69 @@ export default function HuntDetail() {
               </button>
             </div>
             {results.length === 0 ? (
-              <p className="text-sm text-zinc-500" data-testid="hunt-detail-results-empty">
-                No matching results
-              </p>
+              <div
+                className="flex flex-col items-center justify-center gap-4 py-24 text-center"
+                data-testid="hunt-detail-results-empty"
+              >
+                <p className="text-lg text-zinc-400">No listings identified yet.</p>
+                <button
+                  type="button"
+                  data-testid="configure-hunt-cta"
+                  onClick={() => setDrawerOpen(true)}
+                  className="rounded-md bg-sky-600 px-4 py-2 text-white hover:bg-sky-500"
+                >
+                  Configure Hunt
+                </button>
+              </div>
             ) : (
-              <div className="overflow-x-auto">
-                <table data-testid="hunt-detail-results-table" className="w-full text-left text-sm">
-                  <thead>
-                    <tr className="border-b border-white/10 text-zinc-500">
-                      <th className="py-2 pr-2">Title</th>
-                      <th className="py-2 pr-2">Price</th>
-                      <th className="py-2 pr-2">Beds / baths</th>
-                      <th className="py-2 pr-2">Address</th>
-                      <th className="py-2">Link</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {results.map((row) => (
-                      <tr key={row.id} className="border-b border-white/5">
-                        <td className="py-2 pr-2 text-zinc-200">{row.title}</td>
-                        <td className="py-2 pr-2 text-zinc-300">{formatPrice(row.price_cents)}</td>
-                        <td className="py-2 pr-2 text-zinc-400">
-                          {row.beds ?? '—'} / {row.baths ?? '—'}
-                        </td>
-                        <td className="py-2 pr-2 text-zinc-400">{row.address ?? '—'}</td>
-                        <td className="py-2">
-                          <a href={row.link} className="text-sky-400 hover:underline" target="_blank" rel="noreferrer">
-                            Open
-                          </a>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              <div
+                data-testid="hunt-detail-results-grid"
+                className="grid grid-cols-1 gap-4 p-4 sm:grid-cols-2 lg:grid-cols-3"
+              >
+                {results.map((r) => (
+                  <div
+                    key={r.id}
+                    data-testid="hunt-result-card"
+                    className="flex flex-col overflow-hidden rounded-lg border border-white/10 bg-zinc-950/40 shadow-sm"
+                  >
+                    {r.image_url ? (
+                      <img src={r.image_url} alt={r.title} className="h-40 w-full object-cover" />
+                    ) : (
+                      <div className="flex h-40 w-full items-center justify-center bg-zinc-800 text-zinc-500">No image</div>
+                    )}
+                    <div className="flex flex-1 flex-col gap-1 p-3">
+                      <p className="text-lg font-bold text-white">{formatPrice(r.price_cents)}</p>
+                      <p className="text-sm text-zinc-400">
+                        {[r.beds != null && `${r.beds} bd`, r.baths != null && `${r.baths} ba`].filter(Boolean).join(' · ')}
+                      </p>
+                      <p className="truncate text-sm text-zinc-500">{r.address ?? '—'}</p>
+                    </div>
+                    <div className="flex gap-2 border-t border-white/10 p-3">
+                      <a
+                        href={r.link}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex-1 rounded-md bg-sky-600 px-3 py-1.5 text-center text-sm text-white hover:bg-sky-500"
+                      >
+                        View Listing
+                      </a>
+                      <button
+                        type="button"
+                        title="Bookmark"
+                        disabled={busy}
+                        data-testid={`hunt-result-bookmark-${r.id}`}
+                        onClick={() => void toggleResultBookmark(r)}
+                        className="rounded-md border border-white/15 px-3 py-1.5 text-sm hover:bg-zinc-800 disabled:opacity-50"
+                      >
+                        {r.bookmarked === 1 ? 'Saved' : 'Bookmark'}
+                      </button>
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
-          </section>
+          </div>
+          {configDrawer}
         </>
       ) : null}
     </div>

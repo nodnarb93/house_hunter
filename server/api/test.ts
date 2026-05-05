@@ -24,11 +24,19 @@ export async function handleTestRoutes(request: Request, env: Env): Promise<Resp
     const baths = typeof body.baths === 'number' ? body.baths : null
     const image_url = typeof body.image_url === 'string' ? body.image_url : null
     const scraped_at = typeof body.scraped_at === 'string' ? body.scraped_at : new Date().toISOString()
+    let preset_id: number | null = null
+    if (typeof body.preset_id === 'number' && Number.isInteger(body.preset_id)) {
+      preset_id = body.preset_id
+    }
+    let hunt_id: number | null = null
+    if (typeof body.hunt_id === 'number' && Number.isInteger(body.hunt_id)) {
+      hunt_id = body.hunt_id
+    }
     const r = await env.DB.prepare(
-      `INSERT INTO listings (preset_id, run_id, title, link, price_cents, address, beds, baths, image_url, scraped_at)
-       VALUES (NULL, NULL, ?, ?, ?, ?, ?, ?, ?, ?)`
+      `INSERT INTO listings (preset_id, hunt_id, run_id, title, link, price_cents, address, beds, baths, image_url, scraped_at)
+       VALUES (?, ?, NULL, ?, ?, ?, ?, ?, ?, ?, ?)`
     )
-      .bind(title, link, price_cents, address, beds, baths, image_url, scraped_at)
+      .bind(preset_id, hunt_id, title, link, price_cents, address, beds, baths, image_url, scraped_at)
       .run()
     const id = r.meta.last_row_id
     return Response.json({ id }, { status: 201 })
