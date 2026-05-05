@@ -38,7 +38,7 @@ export default function App() {
   }, [loadHunts])
 
   return (
-    <div className="flex min-h-screen bg-zinc-950">
+    <div className="flex min-h-screen overflow-x-hidden bg-zinc-950">
       <aside
         data-testid="sidebar"
         className="fixed left-0 top-0 z-40 flex h-screen w-60 flex-col border-r border-white/10 bg-zinc-900 p-4"
