@@ -4,7 +4,6 @@ import type { FilterPreset } from './api'
 import { getFilters } from './api'
 import Scrapers from './pages/Scrapers'
 import Filters from './pages/Filters'
-import Schedule from './pages/Schedule'
 import Settings from './pages/Settings'
 import Runs from './pages/Runs'
 import Results from './pages/Results'
@@ -75,9 +74,6 @@ export default function App() {
             <NavLink to="/filters" className={pipelineNavClass}>
               Filters
             </NavLink>
-            <NavLink to="/schedule" className={pipelineNavClass}>
-              Schedule
-            </NavLink>
             <NavLink to="/settings" className={pipelineNavClass}>
               Settings
             </NavLink>
@@ -93,7 +89,6 @@ export default function App() {
           <Route path="/" element={<Navigate to="/scrapers" replace />} />
           <Route path="/scrapers" element={<Scrapers />} />
           <Route path="/filters" element={<Filters />} />
-          <Route path="/schedule" element={<Schedule />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="/runs" element={<Runs />} />
           <Route path="/results" element={<Results />} />

@@ -29,18 +29,6 @@ export async function saveFilter(preset: { id?: number; name: string; config: Fi
   return r.json()
 }
 
-export async function getSchedule(): Promise<{ interval_hours: number; active: number; updated_at: string | null }> {
-  const r = await fetch(`${API}/schedule`)
-  if (!r.ok) throw new Error(await r.text())
-  return r.json()
-}
-
-export async function putSchedule(interval_hours: number, active: number): Promise<{ interval_hours: number; active: number; updated_at: string }> {
-  const r = await fetch(`${API}/schedule`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ interval_hours, active }) })
-  if (!r.ok) throw new Error(await r.text())
-  return r.json()
-}
-
 export async function getSettings(): Promise<{ webhook_url?: string; webhook_enabled?: string }> {
   const r = await fetch(`${API}/settings`)
   if (!r.ok) throw new Error(await r.text())
@@ -92,6 +80,16 @@ export interface ScraperSource {
   created_at: string
   last_tested_at: string | null
   last_test_ok: number | null
+  schedule_slots: string[]
+  last_run_at: string | null
+}
+
+function coerceScraperSource(s: ScraperSource): ScraperSource {
+  return {
+    ...s,
+    schedule_slots: Array.isArray(s.schedule_slots) ? s.schedule_slots : [],
+    last_run_at: s.last_run_at ?? null,
+  }
 }
 
 export interface RedfinParams {
@@ -114,7 +112,8 @@ export interface RedfinParams {
 export async function getScrapers(): Promise<ScraperSource[]> {
   const r = await fetch(`${API}/scraper-sources`)
   if (!r.ok) throw new Error(await r.text())
-  return r.json()
+  const list = (await r.json()) as ScraperSource[]
+  return list.map(coerceScraperSource)
 }
 
 export async function addScraper(url: string): Promise<ScraperSource> {
@@ -124,7 +123,7 @@ export async function addScraper(url: string): Promise<ScraperSource> {
     body: JSON.stringify({ url: url.trim() }),
   })
   if (!r.ok) throw new Error(await r.text())
-  return r.json()
+  return coerceScraperSource((await r.json()) as ScraperSource)
 }
 
 export async function addScraperRedfin(params: RedfinParams): Promise<ScraperSource> {
@@ -134,12 +133,25 @@ export async function addScraperRedfin(params: RedfinParams): Promise<ScraperSou
     body: JSON.stringify({ kind: 'redfin', ...params }),
   })
   if (!r.ok) throw new Error(await r.text())
-  return r.json()
+  return coerceScraperSource((await r.json()) as ScraperSource)
 }
 
 export async function removeScraper(id: number): Promise<void> {
   const r = await fetch(`${API}/scraper-sources/${id}`, { method: 'DELETE' })
   if (!r.ok) throw new Error(await r.text())
+}
+
+export async function updateScraperScheduleSlots(id: number, schedule_slots: string[]): Promise<ScraperSource> {
+  const r = await fetch(`${API}/scraper-sources/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ schedule_slots }),
+  })
+  if (!r.ok) {
+    const t = await r.text()
+    throw new Error(t || `HTTP ${r.status}`)
+  }
+  return coerceScraperSource((await r.json()) as ScraperSource)
 }
 
 export async function testScraper(url: string): Promise<{ ok: boolean; type?: string; count?: number; error?: string }> {

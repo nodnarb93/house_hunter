@@ -7,6 +7,7 @@ import {
   removeScraper,
   testScraperById,
   resolveRedfinUrl,
+  updateScraperScheduleSlots,
 } from '../api'
 
 const REGION_TYPE_OPTIONS = [
@@ -28,6 +29,98 @@ const SOURCE_OPTIONS = [
   { id: 'rss' as const, label: 'RSS Feed' },
   { id: 'redfin' as const, label: 'Redfin' },
 ]
+
+/** Local day slots matching server `HH:MM` (30-minute steps). */
+const ALL_DAY_SLOTS: string[] = (() => {
+  const out: string[] = []
+  for (let h = 0; h < 24; h += 1) {
+    for (const m of [0, 30] as const) {
+      out.push(`${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`)
+    }
+  }
+  return out
+})()
+
+function formatSlotAmPm(hhmm: string): string {
+  const [hs, ms] = hhmm.split(':')
+  const h = Number(hs)
+  const m = Number(ms)
+  if (Number.isNaN(h) || Number.isNaN(m)) return hhmm
+  const period = h >= 12 ? 'PM' : 'AM'
+  const h12 = h % 12 === 0 ? 12 : h % 12
+  return `${String(h12).padStart(2, '0')}:${String(m).padStart(2, '0')} ${period}`
+}
+
+function slotToMinutes(hhmm: string): number {
+  const [hs, ms] = hhmm.split(':')
+  const h = Number(hs)
+  const m = Number(ms)
+  if (Number.isNaN(h) || Number.isNaN(m)) return -1
+  return h * 60 + m
+}
+
+/** Group scrapers for the “within 15 minutes” soft warning (same logical source). */
+function scheduleGroupKey(s: ScraperSource): string {
+  if (s.kind === 'redfin' && s.config_json) {
+    try {
+      const c = JSON.parse(s.config_json) as { market?: string }
+      if (c.market) return `redfin:${String(c.market).toLowerCase()}`
+    } catch {
+      /* ignore */
+    }
+  }
+  if (s.kind === 'rss' && s.url?.trim()) {
+    try {
+      return `rss:${new URL(s.url.trim()).hostname.toLowerCase()}`
+    } catch {
+      /* ignore */
+    }
+  }
+  return `other:${s.kind}:${s.id}`
+}
+
+function slotHeldByOther(
+  slot: string,
+  sources: ScraperSource[],
+  selfId: number,
+): { id: number; label: string } | null {
+  for (const o of sources) {
+    if (o.id === selfId) continue
+    const slots = o.schedule_slots ?? []
+    if (slots.includes(slot)) return { id: o.id, label: rowLabel(o) }
+  }
+  return null
+}
+
+function proximityWarning(
+  self: ScraperSource,
+  draftSlots: string[],
+  sources: ScraperSource[],
+): boolean {
+  const g = scheduleGroupKey(self)
+  const selfMins = new Set(draftSlots.map(slotToMinutes).filter((n) => n >= 0))
+  if (selfMins.size === 0) return false
+  for (const o of sources) {
+    if (o.id === self.id) continue
+    if (scheduleGroupKey(o) !== g) continue
+    for (const slot of o.schedule_slots ?? []) {
+      const om = slotToMinutes(slot)
+      if (om < 0) continue
+      for (const sm of selfMins) {
+        const d = Math.abs(sm - om)
+        if (d > 0 && d <= 15) return true
+      }
+    }
+  }
+  return false
+}
+
+function scraperForSlot(slot: string, sources: ScraperSource[]): ScraperSource | null {
+  for (const s of sources) {
+    if ((s.schedule_slots ?? []).includes(slot)) return s
+  }
+  return null
+}
 
 const btnCompact = 'rounded-md bg-zinc-800 px-2.5 py-1.5 text-xs text-white hover:bg-zinc-700 disabled:cursor-not-allowed disabled:opacity-50'
 const inputBase =
@@ -202,6 +295,45 @@ function ScraperSourceTypeDropdown({
   )
 }
 
+function ScheduleOverview({ sources }: { sources: ScraperSource[] }) {
+  return (
+    <section className="mt-8" data-testid="schedule-overview" aria-labelledby="schedule-overview-heading">
+      <h2 id="schedule-overview-heading" className="text-sm font-semibold text-zinc-300">
+        Schedule Overview
+      </h2>
+      <p className="mt-1 max-w-3xl text-xs text-zinc-500">
+        Local time, 30-minute slots (read-only). A scraper runs when the clock matches one of its selected slots.
+      </p>
+      <div
+        className="mt-3 flex w-full min-w-0 gap-px overflow-x-auto rounded-md border border-white/10 bg-zinc-900 p-1"
+        role="list"
+        aria-label="Twenty-four hour scraper schedule"
+      >
+        {ALL_DAY_SLOTS.map((slot) => {
+          const owner = scraperForSlot(slot, sources)
+          return (
+            <div
+              key={slot}
+              data-testid={`schedule-slot-cell-${slot}`}
+              title={owner ? rowLabel(owner) : slot}
+              className={`flex h-14 min-w-[2.25rem] flex-1 flex-col justify-center overflow-hidden border border-transparent px-0.5 text-center text-[10px] leading-tight ${
+                owner ? 'bg-zinc-800 text-zinc-200' : 'bg-zinc-950 text-zinc-600'
+              }`}
+              role="listitem"
+            >
+              {owner ? (
+                <span className="line-clamp-3 break-words">{rowLabel(owner)}</span>
+              ) : (
+                <span aria-hidden>·</span>
+              )}
+            </div>
+          )
+        })}
+      </div>
+    </section>
+  )
+}
+
 export default function Scrapers() {
   const [sources, setSources] = useState<ScraperSource[]>([])
   const [loading, setLoading] = useState(true)
@@ -215,8 +347,16 @@ export default function Scrapers() {
   const [success, setSuccess] = useState('')
   const [testOutput, setTestOutput] = useState<TestOutput>(null)
   const [testingId, setTestingId] = useState<number | null>(null)
+  const [editingId, setEditingId] = useState<number | null>(null)
+  const [draftSlots, setDraftSlots] = useState<string[]>([])
+  const [savingScheduleId, setSavingScheduleId] = useState<number | null>(null)
 
   const sortedSources = useMemo(() => sortSourcesRecentFirst(sources), [sources])
+
+  const slotOrder = useMemo(() => new Map(ALL_DAY_SLOTS.map((s, i) => [s, i])), [])
+
+  const sortDraftSlots = (slots: string[]) =>
+    [...slots].sort((a, b) => (slotOrder.get(a) ?? 0) - (slotOrder.get(b) ?? 0))
 
   const resolveLocation = async () => {
     setError('')
@@ -351,38 +491,159 @@ export default function Scrapers() {
           <p className="mt-2 text-sm text-zinc-500">No scrapers configured yet.</p>
         ) : (
           <ul className="mt-3 list-none p-0">
-            {sortedSources.map((s) => (
-              <li key={s.id} className="flex items-center gap-4 border-b border-white/10 py-3">
-                <div className="flex min-w-0 flex-1 items-start gap-3">
-                  <span
-                    className={statusDotClass(s, testingId)}
-                    title={statusDotTitle(s, testingId)}
-                    aria-hidden
-                  />
-                  <div className="min-w-0 flex-1">
-                    <div className="break-words text-sm text-white">{rowLabel(s)}</div>
+            {sortedSources.map((s) => {
+              const editing = editingId === s.id
+              const warnNear = editing && proximityWarning(s, draftSlots, sources)
+              return (
+                <li key={s.id} className="border-b border-white/10 py-3">
+                  <div className="flex items-center gap-4">
+                    <div className="flex min-w-0 flex-1 items-start gap-3">
+                      <span
+                        className={statusDotClass(s, testingId)}
+                        title={statusDotTitle(s, testingId)}
+                        aria-hidden
+                      />
+                      <div className="min-w-0 flex-1">
+                        <div className="break-words text-sm text-white">{rowLabel(s)}</div>
+                        {!editing && (s.schedule_slots?.length ?? 0) > 0 && (
+                          <p className="mt-1 text-xs text-zinc-500">
+                            Slots: {sortDraftSlots(s.schedule_slots).map(formatSlotAmPm).join(', ')}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    <span className="ml-auto shrink-0 text-xs text-zinc-500">{lastTestedDisplay(s)}</span>
+                    <div className="flex shrink-0 flex-wrap items-center gap-2">
+                      <button
+                        type="button"
+                        className={btnCompact}
+                        data-testid={`scraper-edit-${s.id}`}
+                        onClick={() => {
+                          if (editingId === s.id) {
+                            setEditingId(null)
+                          } else {
+                            setEditingId(s.id)
+                            setDraftSlots(sortDraftSlots([...(s.schedule_slots ?? [])]))
+                          }
+                        }}
+                      >
+                        {editing ? 'Close' : 'Edit'}
+                      </button>
+                      <button
+                        type="button"
+                        className={btnCompact}
+                        onClick={() => test(s)}
+                        disabled={testingId !== null}
+                        title="Test sparingly (max ~1/hour per source)"
+                      >
+                        {testingId === s.id ? 'Testing…' : 'Test'}
+                      </button>
+                      <button type="button" className={btnCompact} onClick={() => remove(s.id)}>
+                        Remove
+                      </button>
+                    </div>
                   </div>
-                </div>
-                <span className="ml-auto shrink-0 text-xs text-zinc-500">{lastTestedDisplay(s)}</span>
-                <div className="flex shrink-0 flex-wrap items-center gap-2">
-                  <button
-                    type="button"
-                    className={btnCompact}
-                    onClick={() => test(s)}
-                    disabled={testingId !== null}
-                    title="Test sparingly (max ~1/hour per source)"
-                  >
-                    {testingId === s.id ? 'Testing…' : 'Test'}
-                  </button>
-                  <button type="button" className={btnCompact} onClick={() => remove(s.id)}>
-                    Remove
-                  </button>
-                </div>
-              </li>
-            ))}
+                  {editing && (
+                    <div className="mt-4 pl-8">
+                      {warnNear && (
+                        <p
+                          className="mb-3 inline-flex max-w-xl rounded-md border border-amber-500/40 bg-amber-950/40 px-2 py-1 text-xs text-amber-200"
+                          data-testid="schedule-proximity-warning"
+                        >
+                          Another scraper on the same source is scheduled within 15 minutes of one of your slots (overlap
+                          is still allowed).
+                        </p>
+                      )}
+                      <fieldset>
+                        <legend className="text-xs font-medium text-zinc-400">Run schedule (local time)</legend>
+                        <div
+                          className="mt-2 grid max-w-4xl grid-cols-8 gap-1 sm:grid-cols-12"
+                          data-testid="scraper-slot-picker"
+                          role="group"
+                          aria-label="Time slots"
+                        >
+                          {ALL_DAY_SLOTS.map((slot) => {
+                            const held = slotHeldByOther(slot, sources, s.id)
+                            const selected = draftSlots.includes(slot)
+                            const disabled = held !== null
+                            return (
+                              <button
+                                key={slot}
+                                type="button"
+                                data-testid={`slot-option-${slot}`}
+                                disabled={disabled}
+                                title={
+                                  disabled && held
+                                    ? `Held by ${held.label}`
+                                    : `${formatSlotAmPm(slot)} — click to ${selected ? 'remove' : 'add'}`
+                                }
+                                aria-pressed={selected}
+                                onClick={() => {
+                                  if (disabled) return
+                                  setDraftSlots((prev) =>
+                                    sortDraftSlots(
+                                      prev.includes(slot) ? prev.filter((x) => x !== slot) : [...prev, slot],
+                                    ),
+                                  )
+                                }}
+                                className={`min-h-[2.25rem] rounded border px-0.5 py-1 text-[10px] leading-tight ${
+                                  disabled
+                                    ? 'cursor-not-allowed border-white/5 bg-zinc-950/80 text-zinc-600 line-through'
+                                    : selected
+                                      ? 'border-blue-400/60 bg-blue-950/40 text-blue-100'
+                                      : 'border-white/10 bg-zinc-900 text-zinc-300 hover:border-white/20 hover:bg-zinc-800'
+                                }`}
+                              >
+                                {formatSlotAmPm(slot)}
+                              </button>
+                            )
+                          })}
+                        </div>
+                      </fieldset>
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          className={btnCompact}
+                          disabled={savingScheduleId !== null}
+                          onClick={async () => {
+                            setError('')
+                            setSavingScheduleId(s.id)
+                            try {
+                              await updateScraperScheduleSlots(s.id, draftSlots)
+                              setSources(await getScrapers())
+                              setSuccess('Schedule updated.')
+                              setEditingId(null)
+                            } catch (e) {
+                              setError(e instanceof Error ? e.message : 'Failed to save schedule')
+                            } finally {
+                              setSavingScheduleId(null)
+                            }
+                          }}
+                        >
+                          {savingScheduleId === s.id ? 'Saving…' : 'Save schedule'}
+                        </button>
+                        <button
+                          type="button"
+                          className={btnCompact}
+                          disabled={savingScheduleId !== null}
+                          onClick={() => {
+                            setEditingId(null)
+                            setDraftSlots([])
+                          }}
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </li>
+              )
+            })}
           </ul>
         )}
       </section>
+
+      <ScheduleOverview sources={sources} />
 
       {(testingId !== null || testOutput !== null) && (
         <section className="mt-8" aria-label="Test output">
