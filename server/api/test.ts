@@ -31,7 +31,7 @@ export async function handleTestRoutes(request: Request, env: Env): Promise<Resp
       .bind(title, link, price_cents, address, beds, baths, image_url, scraped_at)
       .run()
     const id = r.meta.last_row_id
-    return Response.json({ id })
+    return Response.json({ id }, { status: 201 })
   }
 
   if (p === '/api/test/evaluate-notifications' && request.method === 'POST') {
