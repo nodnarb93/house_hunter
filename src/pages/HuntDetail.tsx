@@ -7,6 +7,7 @@ import {
   getScrapers,
   putHouseHunt,
 } from '../api'
+import { GearIcon } from '../components/GearIcon'
 
 function formatPrice(cents: number | null): string {
   if (cents == null) return '—'
@@ -16,24 +17,6 @@ function formatPrice(cents: number | null): string {
 }
 
 type DraftNotification = Omit<HuntNotification, 'id'> & { id?: number }
-
-function GearIcon(props: { className?: string }) {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 0 24 24"
-      fill="currentColor"
-      className={props.className}
-      aria-hidden
-    >
-      <path
-        fillRule="evenodd"
-        d="M11.078 2.25c-.917 0-1.699.663-1.85 1.557L9.05 4.52c-.217.896-.666 1.718-1.28 2.46a12.05 12.05 0 0 0-2.272 1.213c-.797.45-1.69.699-2.598.699H3.6a1.125 1.125 0 0 0-.98.607l-.108.222a12.032 12.032 0 0 0-.697 2.81c-.03.315-.03.63 0 .945a12.032 12.032 0 0 0 .697 2.81l.108.222c.196.402.59.674 1.02.707h.211c.907 0 1.8.249 2.598.699a12.05 12.05 0 0 0 2.272 1.213c.614.742 1.063 1.564 1.28 2.46l.146.713c.151.894.933 1.557 1.85 1.557h1.844c.916 0 1.698-.663 1.85-1.557l.145-.713c.217-.896.666-1.718 1.279-2.46a12.05 12.05 0 0 0 2.273-1.213c.797-.45 1.69-.699 2.598-.699h.168a1.125 1.125 0 0 0 .98-.607l.108-.222a12.032 12.032 0 0 0 .697-2.81c.03-.315.03-.63 0-.945a12.032 12.032 0 0 0-.697-2.81l-.108-.222a1.125 1.125 0 0 0-.98-.607h-.168c-.907 0-1.8-.249-2.598-.699a12.05 12.05 0 0 0-2.273-1.213c-.613-.742-1.062-1.564-1.279-2.46l-.145-.713C13.276 2.913 12.494 2.25 11.578 2.25h-1.5ZM12 8.25a3.75 3.75 0 1 0 0 7.5 3.75 3.75 0 0 0 0-7.5Z"
-        clipRule="evenodd"
-      />
-    </svg>
-  )
-}
 
 export default function HuntDetail() {
   const { id: idParam } = useParams()

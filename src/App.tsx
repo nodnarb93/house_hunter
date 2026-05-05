@@ -10,6 +10,7 @@ import Triage from './pages/Triage'
 import HuntList from './pages/HuntList'
 import HuntCreate from './pages/HuntCreate'
 import HuntDetail from './pages/HuntDetail'
+import { GearIcon } from './components/GearIcon'
 
 function pipelineNavClass({ isActive }: { isActive: boolean }) {
   return isActive
@@ -70,8 +71,15 @@ export default function App() {
             <NavLink to="/scrapers" className={pipelineNavClass}>
               Scrapers
             </NavLink>
-            <NavLink to="/settings" className={pipelineNavClass}>
-              Settings
+            <NavLink
+              to="/settings"
+              className={pipelineNavClass}
+              data-testid="settings-nav-link"
+            >
+              <span className="flex items-center gap-2">
+                <GearIcon className="h-4 w-4 shrink-0 opacity-90" />
+                Settings
+              </span>
             </NavLink>
             <NavLink to="/runs" className={pipelineNavClass}>
               System Logs
