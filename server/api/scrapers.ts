@@ -213,7 +213,7 @@ export async function handleScrapers(request: Request, env: Env): Promise<Respon
           last_run_at: null,
         })
       }
-      return Response.json(scraperJsonRow(row))
+      return Response.json(scraperJsonRow(row), { status: 201 })
     }
 
     return new Response('Method not allowed', { status: 405 })
