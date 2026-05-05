@@ -22,6 +22,36 @@ export interface HouseHunt {
   created_at: string
 }
 
+export interface HuntFilters {
+  min_price: number | null
+  max_price: number | null
+  min_beds: number | null
+  min_baths: number | null
+  keywords: string | null
+  keywords_exclude: string | null
+  location_text: string | null
+}
+
+export interface HuntNotification {
+  id: number
+  type: 'webhook' | 'discord' | 'email'
+  destination: string
+  enabled: boolean
+}
+
+export interface HouseHuntDetail extends HouseHunt {
+  filters: HuntFilters
+  scraper_ids: number[]
+  notifications: HuntNotification[]
+}
+
+export type HouseHuntPutBody = {
+  name?: string
+  filters?: Partial<HuntFilters> | null
+  scraper_ids?: number[]
+  notifications?: Array<{ type: HuntNotification['type']; destination: string; enabled?: boolean }>
+}
+
 export async function getHouseHunts(): Promise<HouseHunt[]> {
   const r = await fetch(`${API}/house-hunts`)
   if (!r.ok) throw new Error(await r.text())
@@ -38,12 +68,40 @@ export async function createHouseHunt(name: string): Promise<HouseHunt> {
   return r.json()
 }
 
-export async function updateHouseHunt(id: number, name: string): Promise<HouseHunt> {
+export async function getHouseHuntDetail(id: number): Promise<HouseHuntDetail> {
+  const r = await fetch(`${API}/house-hunts/${id}`)
+  if (!r.ok) throw new Error(await r.text())
+  return r.json()
+}
+
+export async function putHouseHunt(id: number, body: HouseHuntPutBody): Promise<HouseHuntDetail> {
   const r = await fetch(`${API}/house-hunts/${id}`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name }),
+    body: JSON.stringify(body),
   })
+  if (!r.ok) throw new Error(await r.text())
+  return r.json()
+}
+
+export async function updateHouseHunt(id: number, name: string): Promise<HouseHuntDetail> {
+  return putHouseHunt(id, { name })
+}
+
+export interface HuntResultListing {
+  id: number
+  title: string
+  link: string
+  price_cents: number | null
+  address: string | null
+  beds: number | null
+  baths: number | null
+  image_url: string | null
+  scraped_at: string
+}
+
+export async function getHouseHuntResults(id: number): Promise<HuntResultListing[]> {
+  const r = await fetch(`${API}/house-hunts/${id}/results`)
   if (!r.ok) throw new Error(await r.text())
   return r.json()
 }

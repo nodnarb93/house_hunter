@@ -6,13 +6,246 @@ interface HouseHuntRow {
   created_at: string
 }
 
-function jsonHunt(row: HouseHuntRow) {
-  return { id: row.id, name: row.name, created_at: row.created_at }
+interface FilterRow {
+  hunt_id: number
+  min_price: number | null
+  max_price: number | null
+  min_beds: number | null
+  min_baths: number | null
+  keywords: string | null
+  keywords_exclude: string | null
+  location_text: string | null
+}
+
+interface NotificationRow {
+  id: number
+  type: string
+  destination: string
+  enabled: number
+}
+
+const FILTER_COLS = [
+  'min_price',
+  'max_price',
+  'min_beds',
+  'min_baths',
+  'keywords',
+  'keywords_exclude',
+  'location_text',
+] as const
+
+type FilterCol = (typeof FILTER_COLS)[number]
+
+type FilterState = {
+  min_price: number | null
+  max_price: number | null
+  min_beds: number | null
+  min_baths: number | null
+  keywords: string | null
+  keywords_exclude: string | null
+  location_text: string | null
+}
+
+function emptyFilters(): FilterState {
+  return {
+    min_price: null,
+    max_price: null,
+    min_beds: null,
+    min_baths: null,
+    keywords: null,
+    keywords_exclude: null,
+    location_text: null,
+  }
+}
+
+function rowToFilters(row: FilterRow | null): FilterState {
+  if (!row) return emptyFilters()
+  return {
+    min_price: row.min_price,
+    max_price: row.max_price,
+    min_beds: row.min_beds,
+    min_baths: row.min_baths,
+    keywords: row.keywords,
+    keywords_exclude: row.keywords_exclude,
+    location_text: row.location_text,
+  }
+}
+
+function jsonFilters(f: FilterState) {
+  return {
+    min_price: f.min_price,
+    max_price: f.max_price,
+    min_beds: f.min_beds,
+    min_baths: f.min_baths,
+    keywords: f.keywords,
+    keywords_exclude: f.keywords_exclude,
+    location_text: f.location_text,
+  }
+}
+
+async function loadFilterState(env: Env, huntId: number): Promise<FilterState> {
+  const row = await env.DB.prepare(
+    'SELECT hunt_id, min_price, max_price, min_beds, min_baths, keywords, keywords_exclude, location_text FROM house_hunt_filters WHERE hunt_id = ?'
+  )
+    .bind(huntId)
+    .first<FilterRow>()
+  return rowToFilters(row)
+}
+
+async function buildHuntDetail(env: Env, huntId: number, hunt: HouseHuntRow | null) {
+  if (!hunt) return null
+  const filters = await loadFilterState(env, huntId)
+  const scraperRows = await env.DB.prepare(
+    'SELECT scraper_id FROM house_hunt_scrapers WHERE hunt_id = ? ORDER BY scraper_id'
+  )
+    .bind(huntId)
+    .all<{ scraper_id: number }>()
+  const scraper_ids = (scraperRows.results ?? []).map((r) => r.scraper_id)
+  const notifRows = await env.DB.prepare(
+    'SELECT id, type, destination, enabled FROM house_hunt_notifications WHERE hunt_id = ? ORDER BY id'
+  )
+    .bind(huntId)
+    .all<NotificationRow>()
+  const notifications = (notifRows.results ?? []).map((n) => ({
+    id: n.id,
+    type: n.type,
+    destination: n.destination,
+    enabled: n.enabled === 1,
+  }))
+  return {
+    id: hunt.id,
+    name: hunt.name,
+    created_at: hunt.created_at,
+    filters: jsonFilters(filters),
+    scraper_ids,
+    notifications,
+  }
+}
+
+function splitCommaKeywords(raw: string | null): string[] {
+  if (raw == null || raw.trim() === '') return []
+  return raw
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean)
+}
+
+async function queryHuntResults(env: Env, huntId: number): Promise<Response> {
+  const hunt = await env.DB.prepare('SELECT id FROM house_hunts WHERE id = ?').bind(huntId).first<{ id: number }>()
+  if (!hunt) return Response.json({ error: 'Not found' }, { status: 404 })
+
+  const f = await loadFilterState(env, huntId)
+  const conditions: string[] = ['1 = 1']
+  const params: unknown[] = []
+
+  if (f.min_price != null) {
+    conditions.push('(price_cents IS NOT NULL AND price_cents >= ?)')
+    params.push(f.min_price * 100)
+  }
+  if (f.max_price != null) {
+    conditions.push('(price_cents IS NOT NULL AND price_cents <= ?)')
+    params.push(f.max_price * 100)
+  }
+  if (f.min_beds != null) {
+    conditions.push('(beds IS NOT NULL AND beds >= ?)')
+    params.push(f.min_beds)
+  }
+  if (f.min_baths != null) {
+    conditions.push('(baths IS NOT NULL AND baths >= ?)')
+    params.push(f.min_baths)
+  }
+
+  for (const kw of splitCommaKeywords(f.keywords)) {
+    conditions.push('((title LIKE ? COLLATE NOCASE) OR (address LIKE ? COLLATE NOCASE))')
+    const p = `%${kw}%`
+    params.push(p, p)
+  }
+
+  if (f.location_text != null && f.location_text.trim() !== '') {
+    conditions.push('(address LIKE ? COLLATE NOCASE)')
+    params.push(`%${f.location_text.trim()}%`)
+  }
+
+  for (const ex of splitCommaKeywords(f.keywords_exclude)) {
+    conditions.push('NOT (((title LIKE ? COLLATE NOCASE) OR (address LIKE ? COLLATE NOCASE)))')
+    const p = `%${ex}%`
+    params.push(p, p)
+  }
+
+  const sql = `SELECT id, title, link, price_cents, address, beds, baths, image_url, scraped_at FROM listings WHERE ${conditions.join(
+    ' AND '
+  )} ORDER BY scraped_at DESC`
+  const rows = await env.DB.prepare(sql).bind(...params).all<{
+    id: number
+    title: string
+    link: string
+    price_cents: number | null
+    address: string | null
+    beds: number | null
+    baths: number | null
+    image_url: string | null
+    scraped_at: string
+  }>()
+  return Response.json(rows.results ?? [])
+}
+
+function parseOptionalInt(v: unknown): number | null {
+  if (v === null || v === undefined) return null
+  if (typeof v === 'number' && Number.isInteger(v)) return v
+  if (typeof v === 'string' && v.trim() === '') return null
+  if (typeof v === 'string') {
+    const n = parseInt(v, 10)
+    return Number.isNaN(n) ? null : n
+  }
+  return null
+}
+
+function parseOptionalFloat(v: unknown): number | null {
+  if (v === null || v === undefined) return null
+  if (typeof v === 'number' && Number.isFinite(v)) return v
+  if (typeof v === 'string' && v.trim() === '') return null
+  if (typeof v === 'string') {
+    const n = parseFloat(v)
+    return Number.isNaN(n) ? null : n
+  }
+  return null
+}
+
+function parseOptionalString(v: unknown): string | null {
+  if (v === null || v === undefined) return null
+  if (typeof v !== 'string') return null
+  const t = v.trim()
+  return t === '' ? null : t
+}
+
+function mergeFiltersFromBody(base: FilterState, bodyFilters: Record<string, unknown>): FilterState {
+  const out = { ...base }
+  for (const col of FILTER_COLS) {
+    if (!Object.prototype.hasOwnProperty.call(bodyFilters, col)) continue
+    const val = bodyFilters[col]
+    if (col === 'min_price' || col === 'max_price' || col === 'min_beds') {
+      ;(out as Record<string, unknown>)[col] = parseOptionalInt(val)
+    } else if (col === 'min_baths') {
+      ;(out as Record<string, unknown>)[col] = parseOptionalFloat(val)
+    } else {
+      ;(out as Record<string, unknown>)[col] = parseOptionalString(val)
+    }
+  }
+  return out
 }
 
 export async function handleHunts(request: Request, env: Env): Promise<Response> {
   const url = new URL(request.url)
   const pathname = url.pathname.replace(/\/+$/, '') || '/'
+
+  const resultsMatch = pathname.match(/^\/api\/house-hunts\/(\d+)\/results$/)
+  if (resultsMatch) {
+    const id = parseInt(resultsMatch[1], 10)
+    if (Number.isNaN(id)) return Response.json({ error: 'Invalid id' }, { status: 400 })
+    if (request.method === 'GET') return queryHuntResults(env, id)
+    return new Response('Method not allowed', { status: 405 })
+  }
+
   const idMatch = pathname.match(/^\/api\/house-hunts\/(\d+)$/)
 
   if (pathname === '/api/house-hunts') {
@@ -30,10 +263,10 @@ export async function handleHunts(request: Request, env: Env): Promise<Response>
       const name = typeof body?.name === 'string' ? body.name.trim() : ''
       if (!name) return Response.json({ error: 'name is required' }, { status: 400 })
       const r = await env.DB.prepare('INSERT INTO house_hunts (name) VALUES (?)').bind(name).run()
-      const id = r.meta.last_row_id
-      const row = await env.DB.prepare('SELECT id, name, created_at FROM house_hunts WHERE id = ?').bind(id).first<HouseHuntRow>()
+      const newId = r.meta.last_row_id
+      const row = await env.DB.prepare('SELECT id, name, created_at FROM house_hunts WHERE id = ?').bind(newId).first<HouseHuntRow>()
       if (!row) return Response.json({ error: 'Failed to load created hunt' }, { status: 500 })
-      return Response.json(jsonHunt(row), { status: 201 })
+      return Response.json({ id: row.id, name: row.name, created_at: row.created_at }, { status: 201 })
     }
     return new Response('Method not allowed', { status: 405 })
   }
@@ -42,26 +275,124 @@ export async function handleHunts(request: Request, env: Env): Promise<Response>
     const id = parseInt(idMatch[1], 10)
     if (Number.isNaN(id)) return Response.json({ error: 'Invalid id' }, { status: 400 })
 
+    if (request.method === 'GET') {
+      const row = await env.DB.prepare('SELECT id, name, created_at FROM house_hunts WHERE id = ?').bind(id).first<HouseHuntRow>()
+      const detail = await buildHuntDetail(env, id, row)
+      if (!detail) return Response.json({ error: 'Not found' }, { status: 404 })
+      return Response.json(detail)
+    }
+
     if (request.method === 'PUT') {
-      let body: { name?: unknown }
+      let body: Record<string, unknown>
       try {
-        body = (await request.json()) as { name?: unknown }
+        body = (await request.json()) as Record<string, unknown>
       } catch {
         return Response.json({ error: 'Invalid JSON body' }, { status: 400 })
       }
-      const name = typeof body?.name === 'string' ? body.name.trim() : ''
-      if (!name) return Response.json({ error: 'name is required' }, { status: 400 })
-      const existing = await env.DB.prepare('SELECT id FROM house_hunts WHERE id = ?').bind(id).first<{ id: number }>()
+
+      const existing = await env.DB.prepare('SELECT id, name, created_at FROM house_hunts WHERE id = ?').bind(id).first<HouseHuntRow>()
       if (!existing) return Response.json({ error: 'Not found' }, { status: 404 })
-      await env.DB.prepare("UPDATE house_hunts SET name = ?, updated_at = datetime('now') WHERE id = ?").bind(name, id).run()
+
+      if (Object.prototype.hasOwnProperty.call(body, 'name')) {
+        const nameRaw = body.name
+        if (typeof nameRaw !== 'string' || nameRaw.trim() === '') {
+          return Response.json({ error: 'name must be a non-empty string when provided' }, { status: 400 })
+        }
+        await env.DB.prepare("UPDATE house_hunts SET name = ?, updated_at = datetime('now') WHERE id = ?").bind(nameRaw.trim(), id).run()
+      }
+
+      if (Object.prototype.hasOwnProperty.call(body, 'filters')) {
+        const filtersBody = body.filters
+        if (filtersBody !== null && (typeof filtersBody !== 'object' || Array.isArray(filtersBody))) {
+          return Response.json({ error: 'filters must be an object' }, { status: 400 })
+        }
+        const current = await loadFilterState(env, id)
+        const merged =
+          filtersBody === null ? current : mergeFiltersFromBody(current, filtersBody as Record<string, unknown>)
+        await env.DB
+          .prepare(
+            `INSERT INTO house_hunt_filters (hunt_id, min_price, max_price, min_beds, min_baths, keywords, keywords_exclude, location_text)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+             ON CONFLICT(hunt_id) DO UPDATE SET
+               min_price = excluded.min_price,
+               max_price = excluded.max_price,
+               min_beds = excluded.min_beds,
+               min_baths = excluded.min_baths,
+               keywords = excluded.keywords,
+               keywords_exclude = excluded.keywords_exclude,
+               location_text = excluded.location_text`
+          )
+          .bind(
+            id,
+            merged.min_price,
+            merged.max_price,
+            merged.min_beds,
+            merged.min_baths,
+            merged.keywords,
+            merged.keywords_exclude,
+            merged.location_text
+          )
+          .run()
+      }
+
+      if (Object.prototype.hasOwnProperty.call(body, 'scraper_ids')) {
+        const sid = body.scraper_ids
+        if (!Array.isArray(sid) || !sid.every((x) => typeof x === 'number' && Number.isInteger(x))) {
+          return Response.json({ error: 'scraper_ids must be an array of integers' }, { status: 400 })
+        }
+        const ids = sid as number[]
+        for (const scraperId of ids) {
+          const ok = await env.DB.prepare('SELECT id FROM scraper_sources WHERE id = ?').bind(scraperId).first<{ id: number }>()
+          if (!ok) return Response.json({ error: `scraper_id ${scraperId} not found` }, { status: 400 })
+        }
+        await env.DB.prepare('DELETE FROM house_hunt_scrapers WHERE hunt_id = ?').bind(id).run()
+        for (const scraperId of ids) {
+          await env.DB.prepare('INSERT INTO house_hunt_scrapers (hunt_id, scraper_id) VALUES (?, ?)').bind(id, scraperId).run()
+        }
+      }
+
+      if (Object.prototype.hasOwnProperty.call(body, 'notifications')) {
+        const raw = body.notifications
+        if (!Array.isArray(raw)) {
+          return Response.json({ error: 'notifications must be an array' }, { status: 400 })
+        }
+        const allowed = new Set(['webhook', 'discord', 'email'])
+        for (const item of raw) {
+          if (typeof item !== 'object' || item === null || Array.isArray(item)) {
+            return Response.json({ error: 'each notification must be an object' }, { status: 400 })
+          }
+          const o = item as Record<string, unknown>
+          const type = o.type
+          const dest = o.destination
+          if (typeof type !== 'string' || !allowed.has(type)) {
+            return Response.json({ error: 'notification type must be webhook, discord, or email' }, { status: 400 })
+          }
+          if (typeof dest !== 'string' || dest.trim() === '') {
+            return Response.json({ error: 'notification destination required' }, { status: 400 })
+          }
+        }
+        await env.DB.prepare('DELETE FROM house_hunt_notifications WHERE hunt_id = ?').bind(id).run()
+        for (const item of raw) {
+          const o = item as Record<string, unknown>
+          const enabled = o.enabled === false ? 0 : 1
+          await env.DB
+            .prepare(
+              'INSERT INTO house_hunt_notifications (hunt_id, type, destination, enabled) VALUES (?, ?, ?, ?)'
+            )
+            .bind(id, o.type, String(o.destination).trim(), enabled)
+            .run()
+        }
+      }
+
       const row = await env.DB.prepare('SELECT id, name, created_at FROM house_hunts WHERE id = ?').bind(id).first<HouseHuntRow>()
-      if (!row) return Response.json({ error: 'Not found' }, { status: 404 })
-      return Response.json(jsonHunt(row))
+      const detail = await buildHuntDetail(env, id, row)
+      if (!detail) return Response.json({ error: 'Not found' }, { status: 404 })
+      return Response.json(detail)
     }
 
     if (request.method === 'DELETE') {
-      const existing = await env.DB.prepare('SELECT id FROM house_hunts WHERE id = ?').bind(id).first<{ id: number }>()
-      if (!existing) return Response.json({ error: 'Not found' }, { status: 404 })
+      const ex = await env.DB.prepare('SELECT id FROM house_hunts WHERE id = ?').bind(id).first<{ id: number }>()
+      if (!ex) return Response.json({ error: 'Not found' }, { status: 404 })
       await env.DB.prepare('DELETE FROM house_hunts WHERE id = ?').bind(id).run()
       return new Response(null, { status: 204 })
     }
