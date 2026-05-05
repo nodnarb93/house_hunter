@@ -12,12 +12,23 @@ test('schedule overview: grid layout, hour labels, legend, no document overflow 
   expect(create.status()).toBe(201)
   const scraper = (await create.json()) as { id: number }
 
-  const put = await request.put(`/api/scrapers/${scraper.id}`, {
-    data: { schedule_slots: ['03:30'] },
+  const listResp = await request.get('/api/scrapers')
+  const allScrapers = (await listResp.json()) as Array<{ id: number; schedule_slots: string[] }>
+  const takenSlots = new Set(allScrapers.flatMap((s) => s.schedule_slots ?? []))
+  const ALL_SLOTS = Array.from({ length: 48 }, (_, i) => {
+    const h = Math.floor(i / 2).toString().padStart(2, '0')
+    const m = i % 2 === 0 ? '00' : '30'
+    return `${h}:${m}`
   })
-  expect(put.status()).toBe(200)
+  const freeSlot = ALL_SLOTS.find((s) => !takenSlots.has(s))
+  if (!freeSlot) throw new Error('No free slot available in DB')
 
   try {
+    const put = await request.put(`/api/scrapers/${scraper.id}`, {
+      data: { schedule_slots: [freeSlot] },
+    })
+    expect(put.status()).toBe(200)
+
     await page.setViewportSize({ width: 1280, height: 800 })
     await page.goto('/scrapers')
 
@@ -25,7 +36,7 @@ test('schedule overview: grid layout, hour labels, legend, no document overflow 
     await expect(overview).toBeVisible()
     await expect(page.getByTestId('hour-label').first()).toBeVisible()
 
-    const cell = page.getByTestId('schedule-slot-cell-03:30')
+    const cell = page.getByTestId(`schedule-slot-cell-${freeSlot}`)
     await expect(cell).toBeVisible()
     await expect(cell).not.toHaveClass(/bg-zinc-950/)
 
