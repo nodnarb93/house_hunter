@@ -24,6 +24,39 @@ export async function handleListings(request: Request, env: Env): Promise<Respon
   const url = new URL(request.url)
   const path = url.pathname.replace(/\/$/, '') || url.pathname
 
+  const imagesCountMatch = path.match(/^\/api\/listings\/(\d+)\/images\/count$/)
+  if (imagesCountMatch && request.method === 'GET') {
+    const listingId = Number(imagesCountMatch[1])
+    if (!Number.isFinite(listingId)) return Response.json({ error: 'Invalid listing id' }, { status: 400 })
+    const row = await env.DB
+      .prepare('SELECT COUNT(*) as count FROM listing_images WHERE listing_id = ?')
+      .bind(listingId)
+      .first<{ count: number }>()
+    return Response.json({ count: row?.count ?? 0 })
+  }
+
+  const imagesBlobMatch = path.match(/^\/api\/listings\/(\d+)\/images\/(\d+)$/)
+  if (imagesBlobMatch && request.method === 'GET') {
+    const listingId = Number(imagesBlobMatch[1])
+    const index = Number(imagesBlobMatch[2])
+    if (!Number.isFinite(listingId) || !Number.isFinite(index)) {
+      return Response.json({ error: 'Invalid listing or image index' }, { status: 400 })
+    }
+    const row = await env.DB
+      .prepare(
+        'SELECT image_data FROM listing_images WHERE listing_id = ? AND display_order = ? LIMIT 1'
+      )
+      .bind(listingId, index)
+      .first<{ image_data: Buffer }>()
+    if (!row) return new Response('Not found', { status: 404 })
+    return new Response(row.image_data, {
+      headers: {
+        'Content-Type': 'image/webp',
+        'Cache-Control': 'public, max-age=86400',
+      },
+    })
+  }
+
   if (path === '/api/listings' && request.method === 'GET') {
     const presetId = parseOptionalInt(url.searchParams.get('preset_id'))
     const seen = parseOptionalBit(url.searchParams.get('seen'))

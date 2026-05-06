@@ -1,5 +1,6 @@
 import type { Env } from '../types'
 import { notifyHuntsForNewListings } from '../huntNotifications'
+import { replaceListingImages } from '../listingImages'
 
 export async function handleTestRoutes(request: Request, env: Env): Promise<Response> {
   if (process.env.PLAYWRIGHT_TEST !== '1') {
@@ -40,6 +41,32 @@ export async function handleTestRoutes(request: Request, env: Env): Promise<Resp
       .run()
     const id = r.meta.last_row_id
     return Response.json({ id }, { status: 201 })
+  }
+
+  if (p === '/api/test/seed-listing-images' && request.method === 'POST') {
+    let body: { listing_id?: unknown; images_base64?: unknown }
+    try {
+      body = (await request.json()) as { listing_id?: unknown; images_base64?: unknown }
+    } catch {
+      return Response.json({ error: 'Invalid JSON' }, { status: 400 })
+    }
+    const listingId = typeof body.listing_id === 'number' && Number.isInteger(body.listing_id) ? body.listing_id : null
+    if (listingId == null) return Response.json({ error: 'listing_id required' }, { status: 400 })
+    const exists = await env.DB.prepare('SELECT id FROM listings WHERE id = ?').bind(listingId).first<{ id: number }>()
+    if (!exists) return Response.json({ error: 'listing not found' }, { status: 404 })
+    const raw = body.images_base64
+    if (!Array.isArray(raw) || raw.length === 0) {
+      return Response.json({ error: 'images_base64 must be a non-empty string array' }, { status: 400 })
+    }
+    const buffers: Buffer[] = []
+    for (const item of raw) {
+      if (typeof item !== 'string' || item.trim() === '') {
+        return Response.json({ error: 'each images_base64 entry must be a non-empty string' }, { status: 400 })
+      }
+      buffers.push(Buffer.from(item, 'base64'))
+    }
+    await replaceListingImages(env.DB, listingId, buffers)
+    return Response.json({ ok: true, count: buffers.length })
   }
 
   if (p === '/api/test/evaluate-notifications' && request.method === 'POST') {

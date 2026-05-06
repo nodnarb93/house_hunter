@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useParams } from 'react-router-dom'
+import { Lightbox } from '../components/Lightbox'
+import { ListingGallery } from '../components/ListingGallery'
 import type { HouseHuntDetail, HuntNotification, HuntResultListing, ScraperSource } from '../api'
 import {
   getHouseHuntDetail,
@@ -45,6 +47,7 @@ export default function HuntDetail() {
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [drawerOpen, setDrawerOpen] = useState(false)
+  const [lightbox, setLightbox] = useState<{ listingId: number; index: number; count: number } | null>(null)
 
   const [nameDraft, setNameDraft] = useState('')
   const [minPrice, setMinPrice] = useState('')
@@ -549,11 +552,10 @@ export default function HuntDetail() {
                     data-testid="hunt-result-card"
                     className="flex flex-col overflow-hidden rounded-lg border border-white/10 bg-zinc-950/40 shadow-sm"
                   >
-                    {r.image_url ? (
-                      <img src={r.image_url} alt={r.title} className="h-40 w-full object-cover" />
-                    ) : (
-                      <div className="flex h-40 w-full items-center justify-center bg-zinc-800 text-zinc-500">No image</div>
-                    )}
+                    <ListingGallery
+                      listingId={r.id}
+                      onOpenLightbox={(idx, count) => setLightbox({ listingId: r.id, index: idx, count })}
+                    />
                     <div className="flex flex-1 flex-col gap-1 p-3">
                       <p className="text-lg font-bold text-white">{formatPrice(r.price_cents)}</p>
                       <p className="text-sm text-zinc-400">
@@ -587,6 +589,14 @@ export default function HuntDetail() {
             )}
           </div>
           {configDrawer}
+          {lightbox ? (
+            <Lightbox
+              listingId={lightbox.listingId}
+              initialIndex={lightbox.index}
+              imageCount={lightbox.count}
+              onClose={() => setLightbox(null)}
+            />
+          ) : null}
         </>
       ) : null}
     </div>
