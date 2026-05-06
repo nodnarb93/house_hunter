@@ -18,6 +18,14 @@ export function ListingGallery({ listingId, onOpenLightbox }: Props) {
       .catch(() => setCount(0))
   }, [listingId])
 
+  useEffect(() => {
+    if (count === null || count < 1) return
+    for (let i = 0; i < count; i++) {
+      const im = new Image()
+      im.src = `/api/listings/${listingId}/images/${i}`
+    }
+  }, [listingId, count])
+
   if (count === null) {
     return (
       <div

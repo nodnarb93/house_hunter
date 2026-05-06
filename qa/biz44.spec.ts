@@ -66,6 +66,11 @@ test.describe('BIZ-44 dashboard refactor', () => {
       expect(seed.status()).toBe(201)
       listingId = ((await seed.json()) as { id: number }).id
 
+      const filterPut = await request.put(`/api/house-hunts/${id}`, {
+        data: { filters: { keywords: 'BIZ44 Grid' } },
+      })
+      expect(filterPut.status()).toBe(200)
+
       await page.goto(`/hunts/${id}`)
       await expect(page.getByTestId('hunt-detail-results-grid')).toBeVisible()
       await expect(page.getByTestId('hunt-result-card')).toHaveCount(1)

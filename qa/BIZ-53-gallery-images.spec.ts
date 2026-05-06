@@ -75,6 +75,7 @@ test.describe('BIZ-53 gallery images', () => {
     await expect(mainImg).toBeVisible({ timeout: 20_000 })
     const firstSrc = await mainImg.getAttribute('src')
     await page.getByTestId('listing-gallery-next').first().click()
+    await expect(mainImg).toHaveAttribute('src', `/api/listings/${listingId}/images/1`)
     const secondSrc = await mainImg.getAttribute('src')
     expect(firstSrc).toBeTruthy()
     expect(secondSrc).toBeTruthy()

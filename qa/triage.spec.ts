@@ -22,7 +22,7 @@ test('triage Kanban page and listings stage API', async ({ page, request }) => {
     await expect(page.getByTestId('triage-empty')).toBeHidden()
   }
 
-  const patchRes = await request.patch('/api/listings/999', {
+  const patchRes = await request.patch('/api/listings/2147483647', {
     data: { stage: 'contacted' },
   })
   expect(patchRes.status()).toBe(404)
