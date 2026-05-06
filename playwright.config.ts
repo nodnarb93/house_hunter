@@ -2,6 +2,7 @@ import { defineConfig, devices } from '@playwright/test';
 
 export default defineConfig({
   testDir: './qa',
+  workers: 1,
   webServer: {
     command: 'npm start',
     url: 'http://localhost:3001',
