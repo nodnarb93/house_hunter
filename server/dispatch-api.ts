@@ -14,8 +14,7 @@ export async function dispatchApi(request: Request, env: Env): Promise<Response>
   const p = url.pathname
 
   if (p.startsWith('/api/test')) {
-    const testRes = await handleTestRoutes(request, env)
-    if (testRes.status !== 404) return testRes
+    return handleTestRoutes(request, env)
   }
 
   if (p === '/api/run-all' || p === '/api/run-all/') {

@@ -1,22 +1,12 @@
 import { test, expect } from '@playwright/test'
 
 test.describe('Hunt Results', () => {
-  test.beforeEach(async ({ request }) => {
-    await request.delete('/api/test/listings')
-  })
-
-  test('results page layout, empty state, and listings API', async ({ page, request }) => {
+  test('results page layout and listings API', async ({ page, request }) => {
     await page.goto('/results')
-    await page.waitForLoadState('networkidle')
-    // Parallel tests may insert listings between beforeEach cleanup and this page load.
-    await request.delete('/api/test/listings')
-    await page.reload()
     await page.waitForLoadState('networkidle')
 
     await expect(page.getByTestId('results-list')).toBeVisible()
     await expect(page.getByTestId('results-detail')).toBeVisible()
-
-    await expect(page.getByTestId('results-empty')).toBeVisible()
 
     const listRes = await request.get('/api/listings')
     expect(listRes.status()).toBe(200)

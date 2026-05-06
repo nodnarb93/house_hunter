@@ -71,9 +71,11 @@ export async function runScraperSource(
       const ins = await listingInsert.bind(null, null, e.title, e.link, priceCents, null, null, null, finishedAt).run()
       if (ins.meta.changes > 0) {
         const newId = ins.meta.last_row_id
-        const urls = extractRssImageUrls(e)
-        const buffers = await fetchUrlsAsWebpBuffers(urls, 5, 200)
-        await replaceListingImages(db, newId, buffers)
+        if (process.env.PLAYWRIGHT_TEST !== '1') {
+          const urls = extractRssImageUrls(e)
+          const buffers = await fetchUrlsAsWebpBuffers(urls, 5, 200)
+          await replaceListingImages(db, newId, buffers)
+        }
       }
     }
     const newListingIds = await getListingIdsByScrapedAt(db, finishedAt, null)
@@ -120,8 +122,10 @@ export async function runScraperSource(
         .run()
       if (ins.meta.changes > 0) {
         const newId = ins.meta.last_row_id
-        const buffers = await fetchRedfinListingImages(listing.link)
-        await replaceListingImages(db, newId, buffers)
+        if (process.env.PLAYWRIGHT_TEST !== '1') {
+          const buffers = await fetchRedfinListingImages(listing.link)
+          await replaceListingImages(db, newId, buffers)
+        }
       }
     }
     const newListingIds = await getListingIdsByScrapedAt(db, finishedAt, null)
