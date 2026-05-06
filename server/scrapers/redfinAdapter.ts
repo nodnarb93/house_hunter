@@ -4,6 +4,8 @@
  * See redfin_api_guide.md for parameters.
  */
 
+import { fetchImageBuffer, toWebp } from './imageUtils'
+
 export interface RedfinParams {
   region_id: number
   region_type: number
@@ -299,4 +301,50 @@ export async function fetchRedfinGisCsvCount(params: RedfinParams): Promise<numb
   const lines = text.trim().split(/\r?\n/).filter((line) => line.trim().length > 0)
   if (lines.length <= 1) return 0
   return lines.length - 1
+}
+
+/**
+ * Fetch listing detail HTML and collect photo URLs (og:image + embedded JSON), convert to WebP buffers.
+ */
+export async function fetchRedfinListingImages(listingUrl: string, maxImages = 10): Promise<Buffer[]> {
+  try {
+    const res = await fetch(listingUrl, {
+      headers: {
+        Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        ...REDFIN_FETCH_HEADERS,
+      },
+      signal: AbortSignal.timeout(15_000),
+    })
+    if (!res.ok) return []
+    const html = await res.text()
+
+    const ogMatch =
+      html.match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i) ??
+      html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image["']/i)
+
+    const photoUrls = new Set<string>()
+    if (ogMatch?.[1]) photoUrls.add(ogMatch[1])
+
+    const photoMatches = html.matchAll(/"photoUrl"\s*:\s*"([^"]+)"/g)
+    for (const m of photoMatches) {
+      photoUrls.add(m[1])
+      if (photoUrls.size >= maxImages) break
+    }
+
+    const urlMatches = html.matchAll(/"url"\s*:\s*"(https:\/\/ssl\.cdn-redfin\.com\/[^"]+)"/g)
+    for (const m of urlMatches) {
+      photoUrls.add(m[1])
+      if (photoUrls.size >= maxImages) break
+    }
+
+    const buffers: Buffer[] = []
+    for (const url of Array.from(photoUrls).slice(0, maxImages)) {
+      const buf = await fetchImageBuffer(url)
+      if (buf) buffers.push(await toWebp(buf))
+      await new Promise((r) => setTimeout(r, 500))
+    }
+    return buffers
+  } catch {
+    return []
+  }
 }

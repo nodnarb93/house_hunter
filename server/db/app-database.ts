@@ -3,7 +3,7 @@ import BetterSqlite3 from 'better-sqlite3'
 export type RawSqliteDatabase = InstanceType<typeof BetterSqlite3>
 
 export interface SqlRunResult {
-  meta: { last_row_id: number }
+  meta: { last_row_id: number; changes: number }
 }
 
 export interface SqlPreparedStatement {
@@ -34,7 +34,7 @@ class PreparedStatement implements SqlPreparedStatement {
     return Promise.resolve().then(() => {
       const stmt = this.db.prepare(this.sql)
       const result = stmt.run(...this.params)
-      return { meta: { last_row_id: Number(result.lastInsertRowid) } }
+      return { meta: { last_row_id: Number(result.lastInsertRowid), changes: Number(result.changes) } }
     })
   }
 

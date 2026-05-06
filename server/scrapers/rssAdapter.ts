@@ -40,6 +40,34 @@ function parseBlock(block: string): { title: string; link: string; description: 
   return { title, link, description: desc }
 }
 
+export function extractRssImageUrls(entry: FeedEntry): string[] {
+  const urls: string[] = []
+  const hay = `${entry.raw ?? ''}${entry.description ?? ''}`
+
+  for (const m of hay.matchAll(/<media:content[^>]+url=["']([^"']+)["']/gi)) {
+    urls.push(m[1])
+  }
+  for (const m of hay.matchAll(/url=["']([^"']+)["'][^>]*type=["']image\//gi)) {
+    urls.push(m[1])
+  }
+  const enc = hay.match(/<enclosure[^>]+url=["']([^"']+)["']/i)
+  if (enc?.[1]) urls.push(enc[1])
+
+  if (urls.length === 0) {
+    const img = hay.match(/<img[^>]+src=["']([^"']+)["']/i)
+    if (img?.[1]) urls.push(img[1])
+  }
+
+  const seen = new Set<string>()
+  const deduped: string[] = []
+  for (const u of urls) {
+    if (seen.has(u)) continue
+    seen.add(u)
+    deduped.push(u)
+  }
+  return deduped.slice(0, 5)
+}
+
 export async function fetchAndParse(url: string): Promise<FeedEntry[]> {
   const res = await fetch(url, {
     headers: { 'User-Agent': 'HouseHunter/1.0 (RSS feed reader)' },

@@ -2,8 +2,10 @@ import cron from 'node-cron'
 import type { AppDatabase } from './db/app-database'
 import { getListingIdsByScrapedAt, notifyHuntsForNewListings } from './huntNotifications'
 import type { FeedEntry } from './types'
-import { fetchAndParse } from './scrapers/rssAdapter'
-import { fetchRedfinGisCsvListings, type RedfinParams } from './scrapers/redfinAdapter'
+import { replaceListingImages } from './listingImages'
+import { fetchUrlsAsWebpBuffers } from './scrapers/imageUtils'
+import { extractRssImageUrls, fetchAndParse } from './scrapers/rssAdapter'
+import { fetchRedfinGisCsvListings, fetchRedfinListingImages, type RedfinParams } from './scrapers/redfinAdapter'
 
 export interface ScraperScheduleRow {
   id: number
@@ -66,7 +68,15 @@ export async function runScraperSource(
     )
     for (const e of entries) {
       const priceCents = extractFirstPriceCents(e)
-      await listingInsert.bind(null, null, e.title, e.link, priceCents, null, null, null, finishedAt).run()
+      const ins = await listingInsert.bind(null, null, e.title, e.link, priceCents, null, null, null, finishedAt).run()
+      if (ins.meta.changes > 0) {
+        const newId = ins.meta.last_row_id
+        if (process.env.PLAYWRIGHT_TEST !== '1') {
+          const urls = extractRssImageUrls(e)
+          const buffers = await fetchUrlsAsWebpBuffers(urls, 5, 200)
+          await replaceListingImages(db, newId, buffers)
+        }
+      }
     }
     const newListingIds = await getListingIdsByScrapedAt(db, finishedAt, null)
     await notifyHuntsForNewListings(db, newListingIds)
@@ -97,7 +107,7 @@ export async function runScraperSource(
       'INSERT OR IGNORE INTO listings (preset_id, run_id, title, link, price_cents, address, beds, baths, scraped_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
     )
     for (const listing of listings) {
-      await listingInsert
+      const ins = await listingInsert
         .bind(
           null,
           null,
@@ -110,6 +120,13 @@ export async function runScraperSource(
           finishedAt
         )
         .run()
+      if (ins.meta.changes > 0) {
+        const newId = ins.meta.last_row_id
+        if (process.env.PLAYWRIGHT_TEST !== '1') {
+          const buffers = await fetchRedfinListingImages(listing.link)
+          await replaceListingImages(db, newId, buffers)
+        }
+      }
     }
     const newListingIds = await getListingIdsByScrapedAt(db, finishedAt, null)
     await notifyHuntsForNewListings(db, newListingIds)
