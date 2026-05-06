@@ -1,4 +1,24 @@
-import sharp from 'sharp'
+type Sharp = typeof import('sharp').default
+
+let sharpPromise: Promise<Sharp | null> | null = null
+let missingSharpWarned = false
+
+function getSharp(): Promise<Sharp | null> {
+  if (!sharpPromise) {
+    sharpPromise = import('sharp')
+      .then((m) => m.default)
+      .catch(() => {
+        if (!missingSharpWarned) {
+          missingSharpWarned = true
+          console.warn(
+            '[imageUtils] sharp not available — WebP conversion disabled. Run npm install to enable gallery images.',
+          )
+        }
+        return null
+      })
+  }
+  return sharpPromise
+}
 
 export async function fetchImageBuffer(url: string): Promise<Buffer | null> {
   try {
@@ -11,6 +31,8 @@ export async function fetchImageBuffer(url: string): Promise<Buffer | null> {
 }
 
 export async function toWebp(buf: Buffer): Promise<Buffer> {
+  const sharp = await getSharp()
+  if (!sharp) return buf
   const meta = await sharp(buf).metadata()
   if (meta.format === 'webp') return buf
   return sharp(buf).webp({ quality: 80 }).toBuffer()
