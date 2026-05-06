@@ -3,7 +3,26 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <link rel="icon" href="/favicon.ico" type="image/x-icon" />
+    <link id="favicon-32" rel="icon" type="image/png" sizes="32x32" href="/favicons/dark/favicon-32x32.png" />
+    <link id="favicon-16" rel="icon" type="image/png" sizes="16x16" href="/favicons/dark/favicon-16x16.png" />
+    <link id="favicon-ico" rel="shortcut icon" href="/favicons/dark/favicon.ico" />
+    <link id="apple-touch-icon" rel="apple-touch-icon" href="/favicons/dark/apple-touch-icon.png" />
+    <script>
+      (function () {
+        function applyFavicons(scheme) {
+          var base = '/favicons/' + scheme + '/';
+          document.getElementById('favicon-32').href = base + 'favicon-32x32.png';
+          document.getElementById('favicon-16').href = base + 'favicon-16x16.png';
+          document.getElementById('favicon-ico').href = base + 'favicon.ico';
+          document.getElementById('apple-touch-icon').href = base + 'apple-touch-icon.png';
+        }
+        var mq = window.matchMedia('(prefers-color-scheme: light)');
+        applyFavicons(mq.matches ? 'light' : 'dark');
+        mq.addEventListener('change', function (e) {
+          applyFavicons(e.matches ? 'light' : 'dark');
+        });
+      })();
+    </script>
     <title>House Hunter</title>
   </head>
   <body>
