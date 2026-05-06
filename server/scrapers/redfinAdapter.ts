@@ -134,13 +134,165 @@ export function buildStingrayGisCsvUrl(params: RedfinParams): string {
  * Fetch stingray GIS-CSV and return the number of listing rows (excluding header).
  * Used for test endpoint; pipeline can use same URL and parse CSV into FeedEntry[].
  */
+const REDFIN_FETCH_HEADERS = {
+  'User-Agent':
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+} as const
+
+export interface RedfinParsedListing {
+  title: string
+  link: string
+  address: string
+  price_cents: number | null
+  beds: number | null
+  baths: number | null
+}
+
+function parseCsvLine(line: string): string[] {
+  const out: string[] = []
+  let i = 0
+  let cur = ''
+  let inQuotes = false
+  while (i < line.length) {
+    const c = line[i]
+    if (inQuotes) {
+      if (c === '"') {
+        if (line[i + 1] === '"') {
+          cur += '"'
+          i += 2
+          continue
+        }
+        inQuotes = false
+        i++
+        continue
+      }
+      cur += c
+      i++
+    } else {
+      if (c === '"') {
+        inQuotes = true
+        i++
+      } else if (c === ',') {
+        out.push(cur)
+        cur = ''
+        i++
+      } else {
+        cur += c
+        i++
+      }
+    }
+  }
+  out.push(cur)
+  return out
+}
+
+function findUrlColumnIndex(headers: string[]): number {
+  for (let i = 0; i < headers.length; i++) {
+    if (headers[i].trim().toUpperCase().startsWith('URL')) return i
+  }
+  return -1
+}
+
+function colIndex(headers: string[], name: string): number {
+  const upper = name.toUpperCase()
+  for (let i = 0; i < headers.length; i++) {
+    if (headers[i].trim().toUpperCase() === upper) return i
+  }
+  return -1
+}
+
+function parsePriceCents(raw: string): number | null {
+  const s = raw.trim().replace(/[$,]/g, '')
+  if (!s) return null
+  const n = parseInt(s, 10)
+  if (Number.isNaN(n)) return null
+  return n * 100
+}
+
+/**
+ * Parse stingray GIS-CSV body into structured listings (excludes the header row).
+ */
+export function parseRedfinCsvListings(csvText: string): RedfinParsedListing[] {
+  const lines = csvText.split(/\r?\n/).filter((line) => line.trim().length > 0)
+  if (lines.length < 2) return []
+
+  const headerCells = parseCsvLine(lines[0]).map((h) => h.trim())
+  const idxAddress = colIndex(headerCells, 'ADDRESS')
+  const idxCity = colIndex(headerCells, 'CITY')
+  const idxState = colIndex(headerCells, 'STATE OR PROVINCE')
+  const idxZip = colIndex(headerCells, 'ZIP OR POSTAL CODE')
+  const idxPrice = colIndex(headerCells, 'PRICE')
+  const idxBeds = colIndex(headerCells, 'BEDS')
+  const idxBaths = colIndex(headerCells, 'BATHS')
+  const idxPropType = colIndex(headerCells, 'PROPERTY TYPE')
+  const idxUrl = findUrlColumnIndex(headerCells)
+
+  if (
+    idxAddress < 0 ||
+    idxCity < 0 ||
+    idxState < 0 ||
+    idxPrice < 0 ||
+    idxBeds < 0 ||
+    idxBaths < 0 ||
+    idxPropType < 0 ||
+    idxUrl < 0
+  ) {
+    return []
+  }
+
+  const out: RedfinParsedListing[] = []
+  for (let r = 1; r < lines.length; r++) {
+    const cells = parseCsvLine(lines[r])
+    const get = (idx: number) => (idx < cells.length ? cells[idx].trim() : '')
+
+    const link = get(idxUrl)
+    if (!link) continue
+
+    const addressStreet = get(idxAddress)
+    const city = get(idxCity)
+    const state = get(idxState)
+    const zip = idxZip >= 0 ? get(idxZip) : ''
+    const address =
+      zip.length > 0 ? `${addressStreet}, ${city}, ${state} ${zip}` : `${addressStreet}, ${city}, ${state}`
+
+    const bedsRaw = get(idxBeds)
+    const bathsRaw = get(idxBaths)
+    const priceRaw = get(idxPrice)
+    const propType = get(idxPropType)
+
+    const bedsParsed = parseInt(bedsRaw, 10)
+    const beds = Number.isNaN(bedsParsed) ? null : bedsParsed
+    const bathsParsed = parseFloat(bathsRaw)
+    const baths = Number.isNaN(bathsParsed) ? null : bathsParsed
+
+    const bathLabel = baths == null ? '?' : String(baths)
+    const bedLabel = beds == null ? '?' : String(beds)
+    const title = `${bedLabel}bd/${bathLabel}ba ${propType} at ${addressStreet}, ${city}, ${state}`
+
+    out.push({
+      title,
+      link,
+      address,
+      price_cents: parsePriceCents(priceRaw),
+      beds,
+      baths,
+    })
+  }
+  return out
+}
+
+export async function fetchRedfinGisCsvListings(params: RedfinParams): Promise<RedfinParsedListing[]> {
+  const url = buildStingrayGisCsvUrl(params)
+  const res = await fetch(url, { headers: { ...REDFIN_FETCH_HEADERS } })
+  if (!res.ok) throw new Error(`Redfin GIS-CSV failed: ${res.status} ${url}`)
+  const text = await res.text()
+  return parseRedfinCsvListings(text)
+}
+
 export async function fetchRedfinGisCsvCount(params: RedfinParams): Promise<number> {
   const url = buildStingrayGisCsvUrl(params)
   const res = await fetch(url, {
-    headers: {
-      'User-Agent':
-        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-    },
+    headers: { ...REDFIN_FETCH_HEADERS },
   })
   if (!res.ok) throw new Error(`Redfin GIS-CSV failed: ${res.status} ${url}`)
   const text = await res.text()
