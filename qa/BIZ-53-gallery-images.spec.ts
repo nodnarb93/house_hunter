@@ -46,9 +46,14 @@ test.describe('BIZ-53 gallery images', () => {
     page,
     request,
   }) => {
+    const hunt = await request.post('/api/house-hunts', { data: { name: `BIZ-53 hunt ${Date.now()}` } })
+    expect(hunt.status()).toBe(201)
+    const { id: huntId } = (await hunt.json()) as { id: number }
+
     const seed = await request.post('/api/test/seed-listing', {
       data: {
         title: 'BIZ-53 UI Listing',
+        hunt_id: huntId,
         link: `https://example.invalid/biz53-ui-${Date.now()}`,
         price_cents: 100_000_00,
         address: '9 Gallery Ln',
@@ -63,10 +68,6 @@ test.describe('BIZ-53 gallery images', () => {
       data: { listing_id: listingId, images_base64: [WEBP_RED, WEBP_BLUE] },
     })
     expect(imgSeed.status()).toBe(200)
-
-    const hunt = await request.post('/api/house-hunts', { data: { name: `BIZ-53 hunt ${Date.now()}` } })
-    expect(hunt.status()).toBe(201)
-    const { id: huntId } = (await hunt.json()) as { id: number }
 
     await page.goto(`/hunts/${huntId}`)
 
