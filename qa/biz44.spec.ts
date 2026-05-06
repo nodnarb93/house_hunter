@@ -38,6 +38,12 @@ test.describe('BIZ-44 dashboard refactor', () => {
     expect(post.status()).toBe(201)
     const { id } = (await post.json()) as { id: number }
     try {
+      // min_price in cents — no test fixture costs $100M, so results are always 0
+      const filterPut = await request.put(`/api/house-hunts/${id}`, {
+        data: { filters: { min_price: 9_999_999_999 } },
+      })
+      expect(filterPut.status()).toBe(200)
+
       await page.goto(`/hunts/${id}`)
       await expect(page.getByText('No listings identified yet.')).toBeVisible()
       await page.getByTestId('configure-hunt-cta').click()
