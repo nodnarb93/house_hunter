@@ -3,7 +3,7 @@ import type { AppDatabase } from './db/app-database'
 import { getListingIdsByScrapedAt, notifyHuntsForNewListings } from './huntNotifications'
 import type { FeedEntry } from './types'
 import { fetchAndParse } from './scrapers/rssAdapter'
-import { fetchRedfinGisCsvCount, type RedfinParams } from './scrapers/redfinAdapter'
+import { fetchRedfinGisCsvListings, type RedfinParams } from './scrapers/redfinAdapter'
 
 export interface ScraperScheduleRow {
   id: number
@@ -52,46 +52,71 @@ function shouldRunNow(lastRunAt: string | null): boolean {
 }
 
 /**
- * Runs a single scraper source: RSS ingests into `listings` with preset_id=null;
- * Redfin logs GIS-CSV row count only.
+ * Runs a single scraper source: RSS or Redfin ingests into `listings` with preset_id=null.
  */
-export async function runScraperSource(db: AppDatabase, row: ScraperScheduleRow): Promise<void> {
-  try {
-    if (row.kind === 'rss') {
-      const entries = await fetchAndParse(row.url)
-      const finishedAt = new Date().toISOString()
-      const listingInsert = db.prepare(
-        'INSERT OR IGNORE INTO listings (preset_id, run_id, title, link, price_cents, address, scraped_at) VALUES (?, ?, ?, ?, ?, ?, ?)'
-      )
-      for (const e of entries) {
-        const priceCents = extractFirstPriceCents(e)
-        await listingInsert.bind(null, null, e.title, e.link, priceCents, null, finishedAt).run()
-      }
-      const newListingIds = await getListingIdsByScrapedAt(db, finishedAt, null)
-      await notifyHuntsForNewListings(db, newListingIds)
-    } else if (row.kind === 'redfin') {
-      let params: RedfinParams
-      try {
-        params = JSON.parse(row.config_json ?? '{}') as RedfinParams
-      } catch {
-        console.error(`Scheduled Redfin scrape ${row.id}: invalid config_json (not JSON)`)
-        return
-      }
-      if (
-        typeof params.region_id !== 'number' ||
-        typeof params.region_type !== 'number' ||
-        typeof params.market !== 'string' ||
-        !params.market
-      ) {
-        console.error(`Scheduled Redfin scrape ${row.id}: missing region_id, region_type, or market in config`)
-        return
-      }
-      const count = await fetchRedfinGisCsvCount(params)
-      console.log(`Scheduled Redfin scrape for scraper ${row.id}: count=${count}`)
+export async function runScraperSource(
+  db: AppDatabase,
+  row: ScraperScheduleRow
+): Promise<{ fetched: number; inserted: number }> {
+  if (row.kind === 'rss') {
+    const entries = await fetchAndParse(row.url)
+    const finishedAt = new Date().toISOString()
+    const listingInsert = db.prepare(
+      'INSERT OR IGNORE INTO listings (preset_id, run_id, title, link, price_cents, address, beds, baths, scraped_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
+    )
+    for (const e of entries) {
+      const priceCents = extractFirstPriceCents(e)
+      await listingInsert.bind(null, null, e.title, e.link, priceCents, null, null, null, finishedAt).run()
     }
-  } catch (err) {
-    console.error(`runScraperSource failed for scraper ${row.id}:`, err)
+    const newListingIds = await getListingIdsByScrapedAt(db, finishedAt, null)
+    await notifyHuntsForNewListings(db, newListingIds)
+    return { fetched: entries.length, inserted: newListingIds.length }
   }
+
+  if (row.kind === 'redfin') {
+    let params: RedfinParams
+    try {
+      params = JSON.parse(row.config_json ?? '{}') as RedfinParams
+    } catch {
+      console.error(`Scheduled Redfin scrape ${row.id}: invalid config_json (not JSON)`)
+      return { fetched: 0, inserted: 0 }
+    }
+    if (
+      typeof params.region_id !== 'number' ||
+      typeof params.region_type !== 'number' ||
+      typeof params.market !== 'string' ||
+      !params.market
+    ) {
+      console.error(`Scheduled Redfin scrape ${row.id}: missing region_id, region_type, or market in config`)
+      return { fetched: 0, inserted: 0 }
+    }
+
+    const listings = await fetchRedfinGisCsvListings(params)
+    const finishedAt = new Date().toISOString()
+    const listingInsert = db.prepare(
+      'INSERT OR IGNORE INTO listings (preset_id, run_id, title, link, price_cents, address, beds, baths, scraped_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
+    )
+    for (const listing of listings) {
+      await listingInsert
+        .bind(
+          null,
+          null,
+          listing.title,
+          listing.link,
+          listing.price_cents,
+          listing.address,
+          listing.beds,
+          listing.baths,
+          finishedAt
+        )
+        .run()
+    }
+    const newListingIds = await getListingIdsByScrapedAt(db, finishedAt, null)
+    await notifyHuntsForNewListings(db, newListingIds)
+    return { fetched: listings.length, inserted: newListingIds.length }
+  }
+
+  return { fetched: 0, inserted: 0 }
 }
 
 /**
@@ -110,7 +135,11 @@ export function startScheduledScrapes(db: AppDatabase): void {
       const slots = parseScheduleSlots(row.schedule_slots)
       if (!slots.includes(hhmm)) continue
       if (!shouldRunNow(row.last_run_at)) continue
-      await runScraperSource(db, row)
+      try {
+        await runScraperSource(db, row)
+      } catch (err) {
+        console.error(`runScraperSource failed for scraper ${row.id}:`, err)
+      }
       const nowIso = new Date().toISOString()
       await db.prepare('UPDATE scraper_sources SET last_run_at = ? WHERE id = ?').bind(nowIso, row.id).run()
     }

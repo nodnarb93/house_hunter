@@ -1,6 +1,7 @@
 import type { Env } from '../types'
 import { isRedfinUrl, parseRedfinUrl, fetchRedfinGisCsvCount } from '../scrapers/redfinAdapter'
 import { fetchAndParse } from '../scrapers/rssAdapter'
+import { runScraperSource, type ScraperScheduleRow } from '../scheduler'
 
 export interface ScraperSourceRow {
   id: number
@@ -237,6 +238,30 @@ export async function handleScrapers(request: Request, env: Env): Promise<Respon
     }
 
     return new Response('Method not allowed', { status: 405 })
+  }
+
+  const runMatch = pathname.match(/^\/api\/scrapers\/(\d+)\/run$/)
+  if (runMatch && request.method === 'POST') {
+    const id = parseInt(runMatch[1], 10)
+    if (isNaN(id)) return Response.json({ error: 'Invalid id' }, { status: 400 })
+
+    const row = await env.DB
+      .prepare(
+        'SELECT id, kind, url, config_json, schedule_slots, last_run_at FROM scraper_sources WHERE id = ?'
+      )
+      .bind(id)
+      .first<ScraperScheduleRow>()
+    if (!row) return Response.json({ error: 'Source not found' }, { status: 404 })
+
+    try {
+      const result = await runScraperSource(env.DB, row)
+      const nowIso = new Date().toISOString()
+      await env.DB.prepare('UPDATE scraper_sources SET last_run_at = ? WHERE id = ?').bind(nowIso, id).run()
+      return Response.json({ ok: true, fetched: result.fetched, inserted: result.inserted })
+    } catch (e) {
+      const message = e instanceof Error ? e.message : 'Run failed'
+      return Response.json({ ok: false, error: message }, { status: 502 })
+    }
   }
 
   const idMatch = pathname.match(/^\/api\/scrapers\/(\d+)$/)
