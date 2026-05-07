@@ -31,10 +31,11 @@ test.describe('Hunt images display', () => {
 
     await page.goto(`/hunts/${huntId}`)
 
-    await expect(page.getByTestId('listing-gallery')).toBeVisible()
-    await expect(page.getByTestId('listing-gallery-empty')).toHaveCount(0)
+    const listingCard = page.locator(`[data-listing-id="${listingId}"]`)
+    await expect(listingCard.getByTestId('listing-gallery')).toBeVisible()
+    await expect(listingCard.getByTestId('listing-gallery-empty')).toHaveCount(0)
 
-    const mainImg = page.getByTestId('listing-gallery-main-img').first()
+    const mainImg = listingCard.getByTestId('listing-gallery-main-img').first()
     await expect(mainImg).toBeVisible({ timeout: 20_000 })
     await expect(mainImg).toHaveAttribute('src', /.+/)
 

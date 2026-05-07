@@ -550,6 +550,7 @@ export default function HuntDetail() {
                   <div
                     key={r.id}
                     data-testid="hunt-result-card"
+                    data-listing-id={r.id}
                     className="flex flex-col overflow-hidden rounded-lg border border-white/10 bg-zinc-950/40 shadow-sm"
                   >
                     <ListingGallery
