@@ -27,7 +27,8 @@ const REDFIN_ORIGIN = 'https://www.redfin.com'
 
 const REDFIN_CDN_ORIGIN = 'https://ssl.cdn-redfin.com'
 
-const REDFIN_FETCH_HEADERS = {
+/** Headers for Redfin HTML and CDN probes; exported for `ListingSource` implementations. */
+export const REDFIN_FETCH_HEADERS = {
   'User-Agent':
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
 } as const
@@ -382,6 +383,31 @@ export async function fetchRedfinGisCsvCount(params: RedfinParams): Promise<numb
   const lines = text.trim().split(/\r?\n/).filter((line) => line.trim().length > 0)
   if (lines.length <= 1) return 0
   return lines.length - 1
+}
+
+/**
+ * Extract image URLs from an already-fetched Redfin listing HTML document (no HTTP).
+ * Order: `og:image`, then `"photoUrl":` keys in source order, then `ssl.cdn-redfin.com` `"url":` keys.
+ */
+export function extractPhotoUrls(html: string, maxImages = 10): string[] {
+  const ogMatch =
+    html.match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i) ??
+    html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image["']/i)
+
+  const photoUrls = new Set<string>()
+  if (ogMatch?.[1]) photoUrls.add(ogMatch[1])
+
+  for (const m of html.matchAll(/"photoUrl"\s*:\s*"([^"]+)"/g)) {
+    photoUrls.add(m[1])
+    if (photoUrls.size >= maxImages) break
+  }
+
+  for (const m of html.matchAll(/"url"\s*:\s*"(https:\/\/ssl\.cdn-redfin\.com\/[^"]+)"/g)) {
+    photoUrls.add(m[1])
+    if (photoUrls.size >= maxImages) break
+  }
+
+  return Array.from(photoUrls).slice(0, maxImages)
 }
 
 /**
