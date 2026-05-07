@@ -1,6 +1,7 @@
 import type { Env } from '../types'
 import { notifyHuntsForNewListings } from '../huntNotifications'
 import { replaceListingImages } from '../listingImages'
+import { buildRedfinBigPhotoCdnUrl, extractRedfinPropertyIdFromUrl } from '../scrapers/redfinAdapter'
 
 export async function handleTestRoutes(request: Request, env: Env): Promise<Response> {
   if (process.env.PLAYWRIGHT_TEST !== '1') {
@@ -67,6 +68,33 @@ export async function handleTestRoutes(request: Request, env: Env): Promise<Resp
     }
     await replaceListingImages(env.DB, listingId, buffers)
     return Response.json({ ok: true, count: buffers.length })
+  }
+
+  if (p === '/api/test/redfin-property-id' && request.method === 'POST') {
+    let body: { url?: unknown }
+    try {
+      body = (await request.json()) as { url?: unknown }
+    } catch {
+      return Response.json({ error: 'Invalid JSON' }, { status: 400 })
+    }
+    const url = typeof body.url === 'string' ? body.url : ''
+    if (!url) return Response.json({ error: 'url required' }, { status: 400 })
+    return Response.json({ propertyId: extractRedfinPropertyIdFromUrl(url) })
+  }
+
+  if (p === '/api/test/redfin-cdn-bigphoto-url' && request.method === 'POST') {
+    let body: { property_id?: unknown; index?: unknown }
+    try {
+      body = (await request.json()) as { property_id?: unknown; index?: unknown }
+    } catch {
+      return Response.json({ error: 'Invalid JSON' }, { status: 400 })
+    }
+    const propertyId = typeof body.property_id === 'string' ? body.property_id : ''
+    const index = typeof body.index === 'number' && Number.isInteger(body.index) ? body.index : null
+    if (!propertyId || index == null) return Response.json({ error: 'property_id string and integer index required' }, { status: 400 })
+    const built = buildRedfinBigPhotoCdnUrl(propertyId, index)
+    if (!built) return Response.json({ error: 'invalid property_id or index' }, { status: 400 })
+    return Response.json({ url: built })
   }
 
   if (p === '/api/test/evaluate-notifications' && request.method === 'POST') {
