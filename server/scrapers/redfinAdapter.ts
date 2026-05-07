@@ -315,7 +315,12 @@ export async function fetchRedfinListingImages(listingUrl: string, maxImages = 1
       },
       signal: AbortSignal.timeout(15_000),
     })
-    if (!res.ok) return []
+    if (!res.ok) {
+      console.warn(
+        `[redfin] listing page fetch failed — ${listingUrl}: HTTP ${res.status} ${res.statusText || ''}`.trim(),
+      )
+      return []
+    }
     const html = await res.text()
 
     const ogMatch =
@@ -344,7 +349,9 @@ export async function fetchRedfinListingImages(listingUrl: string, maxImages = 1
       await new Promise((r) => setTimeout(r, 500))
     }
     return buffers
-  } catch {
+  } catch (err) {
+    const reason = err instanceof Error ? err.message : String(err)
+    console.warn(`[redfin] listing page fetch failed — ${listingUrl}: ${reason}`)
     return []
   }
 }
