@@ -5,16 +5,38 @@ const WEBP_RED =
   'UklGRjwAAABXRUJQVlA4IDAAAADQAQCdASoCAAIAAUAmJaACdLoB+AADsAD+8ut//NgVzXPv9//S4P0uD9Lg/9KQAAA='
 
 test.describe('Hunt images display', () => {
+  let huntId: number | undefined
+  let listingId: number | undefined
+
+  test.beforeEach(() => {
+    huntId = undefined
+    listingId = undefined
+  })
+
+  test.afterEach(async ({ request }) => {
+    if (listingId != null) {
+      await request.delete(`/api/test/listings/${listingId}`)
+    }
+    if (huntId != null) {
+      await request.delete(`/api/house-hunts/${huntId}`)
+    }
+    listingId = undefined
+    huntId = undefined
+  })
+
   test('Seeded listing images render in hunt detail page (not "No image")', async ({ page, request }) => {
-    const hunt = await request.post('/api/house-hunts', { data: { name: `BIZ-63 hunt ${Date.now()}` } })
+    const uniq = Date.now()
+    const seedUrl = `https://www.redfin.com/home/${uniq}`
+
+    const hunt = await request.post('/api/house-hunts', { data: { name: `BIZ-63 hunt ${uniq}` } })
     expect(hunt.status()).toBe(201)
-    const { id: huntId } = (await hunt.json()) as { id: number }
+    ;({ id: huntId } = (await hunt.json()) as { id: number })
 
     const seed = await request.post('/api/test/seed-listing', {
       data: {
         title: 'BIZ-63 Redfin-shaped listing',
         hunt_id: huntId,
-        link: `https://www.redfin.com/home/12345678`,
+        link: seedUrl,
         price_cents: 123_000_00,
         address: '1 Image Test St',
         beds: 3,
@@ -22,7 +44,7 @@ test.describe('Hunt images display', () => {
       },
     })
     expect(seed.status()).toBe(201)
-    const { id: listingId } = (await seed.json()) as { id: number }
+    ;({ id: listingId } = (await seed.json()) as { id: number })
 
     const imgSeed = await request.post('/api/test/seed-listing-images', {
       data: { listing_id: listingId, images_base64: [WEBP_RED] },
@@ -38,9 +60,6 @@ test.describe('Hunt images display', () => {
     const mainImg = listingCard.getByTestId('listing-gallery-main-img').first()
     await expect(mainImg).toBeVisible({ timeout: 20_000 })
     await expect(mainImg).toHaveAttribute('src', /.+/)
-
-    await request.delete(`/api/house-hunts/${huntId}`)
-    await request.delete(`/api/test/listings/${listingId}`)
   })
 })
 
