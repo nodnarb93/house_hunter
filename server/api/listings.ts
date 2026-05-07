@@ -1,4 +1,7 @@
 import type { Env, Listing } from '../types'
+import { replaceListingImages } from '../listingImages'
+import { fetchUrlsAsWebpBuffers } from '../scrapers/imageUtils'
+import { fetchRedfinListingImages } from '../scrapers/redfinAdapter'
 
 const LISTING_STAGES = ['interested', 'contacted', 'tour_scheduled', 'rejected'] as const
 type ListingStage = (typeof LISTING_STAGES)[number]
@@ -18,6 +21,31 @@ function parseOptionalBit(value: string | null): 0 | 1 | undefined {
   if (value === '0') return 0
   if (value === '1') return 1
   return undefined
+}
+
+function extractOgImageUrl(html: string): string | null {
+  const ogMatch =
+    html.match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i) ??
+    html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image["']/i)
+  return ogMatch?.[1] ?? null
+}
+
+async function fetchNonRedfinOgImageBuffers(link: string): Promise<Buffer[]> {
+  try {
+    const res = await fetch(link, {
+      headers: {
+        Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+      },
+      signal: AbortSignal.timeout(15_000),
+    })
+    if (!res.ok) return []
+    const html = await res.text()
+    const url = extractOgImageUrl(html)
+    if (!url) return []
+    return fetchUrlsAsWebpBuffers([url], 1)
+  } catch {
+    return []
+  }
 }
 
 export async function handleListings(request: Request, env: Env): Promise<Response> {
@@ -55,6 +83,36 @@ export async function handleListings(request: Request, env: Env): Promise<Respon
         'Cache-Control': 'public, max-age=86400',
       },
     })
+  }
+
+  if (path === '/api/listings/backfill-images' && request.method === 'POST') {
+    const rows = await env.DB
+      .prepare(
+        `SELECT id, link FROM listings
+         WHERE id NOT IN (SELECT DISTINCT listing_id FROM listing_images)`
+      )
+      .all<{ id: number; link: string }>()
+    const pending = rows.results ?? []
+    const queued = pending.length
+
+    void Promise.resolve()
+      .then(async () => {
+        if (process.env.PLAYWRIGHT_TEST === '1') return
+        for (const row of pending) {
+          try {
+            const lower = row.link.toLowerCase()
+            const buffers = lower.includes('redfin.com')
+              ? await fetchRedfinListingImages(row.link)
+              : await fetchNonRedfinOgImageBuffers(row.link)
+            if (buffers.length > 0) await replaceListingImages(env.DB, row.id, buffers)
+          } catch (err) {
+            console.error(`backfill-images failed for listing ${row.id}:`, err)
+          }
+        }
+      })
+      .catch((err) => console.error('backfill-images:', err))
+
+    return Response.json({ ok: true, queued })
   }
 
   if (path === '/api/listings' && request.method === 'GET') {

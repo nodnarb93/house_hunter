@@ -53,6 +53,7 @@ export default function Results() {
   const [listings, setListings] = useState<ListingRow[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedId, setSelectedId] = useState<number | null>(null)
+  const [imageFetchBanner, setImageFetchBanner] = useState<string | null>(null)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -105,14 +106,40 @@ export default function Results() {
     await patchListing(selected.id, { bookmarked: next })
   }
 
+  const startImageBackfill = async () => {
+    try {
+      const r = await fetch('/api/listings/backfill-images', { method: 'POST' })
+      if (!r.ok) throw new Error(await r.text())
+      setImageFetchBanner('Image fetch started — refresh in a minute.')
+      window.setTimeout(() => setImageFetchBanner(null), 12_000)
+    } catch {
+      setImageFetchBanner(null)
+    }
+  }
+
   const emptyCopy = 'No listings yet — run a scrape to populate results.'
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-4">
-      <div>
-        <h1 className="text-lg font-semibold text-white">Hunt Results</h1>
-        <p className="mt-1 text-sm text-zinc-400">Matches from your scrapes, filtered by preset.</p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-lg font-semibold text-white">Hunt Results</h1>
+          <p className="mt-1 text-sm text-zinc-400">Matches from your scrapes, filtered by preset.</p>
+        </div>
+        <button
+          type="button"
+          data-testid="results-fetch-images"
+          className={btnCompact}
+          onClick={() => void startImageBackfill()}
+        >
+          Fetch Images
+        </button>
       </div>
+      {imageFetchBanner ? (
+        <p className="text-sm text-emerald-400/90" role="status">
+          {imageFetchBanner}
+        </p>
+      ) : null}
 
       {loading ? (
         <div className="text-sm text-zinc-400">Loading…</div>
