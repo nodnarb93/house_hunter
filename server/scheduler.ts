@@ -3,9 +3,7 @@ import type { AppDatabase } from './db/app-database'
 import { getListingIdsByScrapedAt, notifyHuntsForNewListings } from './huntNotifications'
 import type { FeedEntry } from './types'
 import { replaceListingImageUrls } from './listingImageUrls'
-import { replaceListingImages } from './listingImages'
-import { fetchUrlsAsWebpBuffers } from './scrapers/imageUtils'
-import { extractRssImageUrls, fetchAndParse } from './scrapers/rssAdapter'
+import { fetchAndParse } from './scrapers/rssAdapter'
 import { findSourceForUrl } from './scrapers/sourceRegistry'
 import { fetchRedfinGisCsvListings, type RedfinParams } from './scrapers/redfinAdapter'
 
@@ -74,9 +72,12 @@ export async function runScraperSource(
       if (ins.meta.changes > 0) {
         const newId = ins.meta.last_row_id
         if (process.env.PLAYWRIGHT_TEST !== '1') {
-          const urls = extractRssImageUrls(e)
-          const buffers = await fetchUrlsAsWebpBuffers(urls, 5, 200)
-          await replaceListingImages(db, newId, buffers)
+          const source = findSourceForUrl(e.link)
+          if (source) {
+            const imageUrls = await source.extractPhotoUrls(e.link)
+            await replaceListingImageUrls(db, newId, imageUrls)
+            await new Promise((r) => setTimeout(r, 200))
+          }
         }
       }
     }
