@@ -25,6 +25,82 @@ export interface RedfinParams {
 
 const REDFIN_ORIGIN = 'https://www.redfin.com'
 
+const REDFIN_CDN_ORIGIN = 'https://ssl.cdn-redfin.com'
+
+const REDFIN_FETCH_HEADERS = {
+  'User-Agent':
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+} as const
+
+/**
+ * Extract the numeric Redfin property id from a listing URL (`.../home/<id>`).
+ * Uses the last `/home/<digits>` segment when multiple appear in the string.
+ */
+export function extractRedfinPropertyIdFromUrl(listingUrl: string): string | null {
+  let last: string | null = null
+  const re = /\/home\/(\d+)/gi
+  let m: RegExpExecArray | null
+  while ((m = re.exec(listingUrl)) !== null) {
+    last = m[1]
+  }
+  return last
+}
+
+/**
+ * Build a candidate full-size photo URL on Redfin's CDN (bigphoto layout).
+ * Pattern verified against public examples: `/photo/1/bigphoto/{id % 1000}/{id}_{index}.jpg`.
+ */
+export function buildRedfinBigPhotoCdnUrl(propertyId: string, photoIndex: number): string | null {
+  const idNum = Number(propertyId)
+  if (!Number.isFinite(idNum) || idNum <= 0 || !Number.isInteger(idNum)) return null
+  if (!Number.isFinite(photoIndex) || photoIndex < 0 || !Number.isInteger(photoIndex)) return null
+  const bucket = idNum % 1000
+  return `${REDFIN_CDN_ORIGIN}/photo/1/bigphoto/${bucket}/${propertyId}_${photoIndex}.jpg`
+}
+
+async function redfinCdnResourceExists(url: string): Promise<boolean> {
+  try {
+    const base = {
+      headers: { ...REDFIN_FETCH_HEADERS },
+      signal: AbortSignal.timeout(10_000),
+    } as const
+    let res = await fetch(url, { method: 'HEAD', ...base })
+    if (res.ok) return true
+    if (res.status === 405 || res.status === 501 || res.status === 403) {
+      res = await fetch(url, {
+        method: 'GET',
+        headers: { ...base.headers, Range: 'bytes=0-0' },
+        signal: base.signal,
+      })
+      return res.ok || res.status === 206
+    }
+    return false
+  } catch {
+    return false
+  }
+}
+
+async function fetchRedfinListingImagesFromCdn(listingUrl: string, maxImages: number): Promise<Buffer[]> {
+  const propertyId = extractRedfinPropertyIdFromUrl(listingUrl)
+  if (!propertyId) return []
+
+  const confirmed: string[] = []
+  for (let i = 0; i < maxImages; i++) {
+    const candidate = buildRedfinBigPhotoCdnUrl(propertyId, i)
+    if (!candidate) break
+    if (await redfinCdnResourceExists(candidate)) confirmed.push(candidate)
+    await new Promise((r) => setTimeout(r, 150))
+  }
+
+  const buffers: Buffer[] = []
+  for (const url of confirmed) {
+    const buf = await fetchImageBuffer(url)
+    if (buf) buffers.push(await toWebp(buf))
+    await new Promise((r) => setTimeout(r, 500))
+  }
+  return buffers
+}
+
 /**
  * Returns true if the URL looks like a Redfin search/saved-feed page (city or zip).
  */
@@ -136,10 +212,6 @@ export function buildStingrayGisCsvUrl(params: RedfinParams): string {
  * Fetch stingray GIS-CSV and return the number of listing rows (excluding header).
  * Used for test endpoint; pipeline can use same URL and parse CSV into FeedEntry[].
  */
-const REDFIN_FETCH_HEADERS = {
-  'User-Agent':
-    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-} as const
 
 export interface RedfinParsedListing {
   title: string
@@ -304,9 +376,13 @@ export async function fetchRedfinGisCsvCount(params: RedfinParams): Promise<numb
 }
 
 /**
- * Fetch listing detail HTML and collect photo URLs (og:image + embedded JSON), convert to WebP buffers.
+ * Fetch listing photos: try CDN bigphoto URLs derived from `/home/<propertyId>` first (no listing HTML),
+ * then fall back to listing-page scraping (og:image + embedded JSON).
  */
 export async function fetchRedfinListingImages(listingUrl: string, maxImages = 10): Promise<Buffer[]> {
+  const fromCdn = await fetchRedfinListingImagesFromCdn(listingUrl, maxImages)
+  if (fromCdn.length > 0) return fromCdn
+
   try {
     const res = await fetch(listingUrl, {
       headers: {
