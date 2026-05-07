@@ -72,17 +72,25 @@ async function redfinCdnResourceExists(url: string): Promise<boolean> {
         headers: { ...base.headers, Range: 'bytes=0-0' },
         signal: base.signal,
       })
-      return res.ok || res.status === 206
+      if (res.ok || res.status === 206) return true
+      console.warn(`[redfin-cdn] probe failed — ${url}: HTTP ${res.status}`)
+      return false
     }
+    console.warn(`[redfin-cdn] probe failed — ${url}: HTTP ${res.status}`)
     return false
-  } catch {
+  } catch (err) {
+    const reason = err instanceof Error ? err.message : String(err)
+    console.warn(`[redfin-cdn] probe failed — ${url}: ${reason}`)
     return false
   }
 }
 
 async function fetchRedfinListingImagesFromCdn(listingUrl: string, maxImages: number): Promise<Buffer[]> {
   const propertyId = extractRedfinPropertyIdFromUrl(listingUrl)
-  if (!propertyId) return []
+  if (!propertyId) {
+    console.warn(`[redfin-cdn] no /home/<id> in URL — ${listingUrl}`)
+    return []
+  }
 
   const confirmed: string[] = []
   for (let i = 0; i < maxImages; i++) {
@@ -91,6 +99,7 @@ async function fetchRedfinListingImagesFromCdn(listingUrl: string, maxImages: nu
     if (await redfinCdnResourceExists(candidate)) confirmed.push(candidate)
     await new Promise((r) => setTimeout(r, 150))
   }
+  console.warn(`[redfin-cdn] ${listingUrl}: confirmed ${confirmed.length}/${maxImages} CDN URLs`)
 
   const buffers: Buffer[] = []
   for (const url of confirmed) {
@@ -378,6 +387,10 @@ export async function fetchRedfinGisCsvCount(params: RedfinParams): Promise<numb
 /**
  * Fetch listing photos: try CDN bigphoto URLs derived from `/home/<propertyId>` first (no listing HTML),
  * then fall back to listing-page scraping (og:image + embedded JSON).
+ *
+ * Note: In dev we have observed real `/home/<id>` IDs returning HTTP 404 for the derived bigphoto CDN URL,
+ * and listing-page HTML returning an AWS WAF challenge. In that case, backfill will log the CDN probe failures
+ * but cannot retrieve images without a different data source providing image URLs.
  */
 export async function fetchRedfinListingImages(listingUrl: string, maxImages = 10): Promise<Buffer[]> {
   const fromCdn = await fetchRedfinListingImagesFromCdn(listingUrl, maxImages)
