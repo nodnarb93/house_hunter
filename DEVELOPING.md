@@ -59,6 +59,13 @@ This repo is operated by an agent pipeline (see [AGENT_WORKFLOW.md](AGENT_WORKFL
 - Playwright’s `playwright.config.ts` uses `http://localhost:3001`, starts the app with **`npm start`** via `webServer`, and points tests at that URL.
 - **`PORT` must be `3001`** for Playwright and local parity. It is set explicitly in `playwright.config.ts` so container or host environments that export a different `PORT` do not break the test server URL.
 
+## Redfin image backfill limitations
+
+- The backfill pipeline (`POST /api/listings/backfill-images`) tries **Redfin CDN inference first** (derived from `/home/<id>`), then falls back to **listing HTML scraping**.
+- In practice, some real Redfin listings return **HTTP 404** for the inferred CDN URL pattern, and Redfin listing HTML requests may return an **AWS WAF challenge**, preventing scrape-based discovery of `ssl.cdn-redfin.com` image URLs.
+- When this happens, you should expect server logs like `[redfin-cdn] probe failed — ... HTTP 404` and `[backfill] ... no images retrieved`.
+- Workaround: ensure your upstream feed/source includes image URLs (or use a test-seeded listing images flow in Playwright) so the UI can display images without relying on Redfin HTML.
+
 ## Paperclip container specifics
 
 If you run inside the Paperclip Docker container at `/paperclip/workspaces/house_hunter`, these apply:
