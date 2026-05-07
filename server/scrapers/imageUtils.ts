@@ -23,9 +23,16 @@ function getSharp(): Promise<Sharp | null> {
 export async function fetchImageBuffer(url: string): Promise<Buffer | null> {
   try {
     const res = await fetch(url, { signal: AbortSignal.timeout(10_000) })
-    if (!res.ok) return null
+    if (!res.ok) {
+      console.warn(
+        `[imageUtils] image fetch failed — ${url}: HTTP ${res.status} ${res.statusText || ''}`.trim(),
+      )
+      return null
+    }
     return Buffer.from(await res.arrayBuffer())
-  } catch {
+  } catch (err) {
+    const reason = err instanceof Error ? err.message : String(err)
+    console.warn(`[imageUtils] image fetch failed — ${url}: ${reason}`)
     return null
   }
 }
@@ -45,8 +52,9 @@ export async function fetchUrlsAsWebpBuffers(urls: string[], max: number, delayM
     if (buf) {
       try {
         out.push(await toWebp(buf))
-      } catch {
-        /* skip corrupt */
+      } catch (err) {
+        const reason = err instanceof Error ? err.message : String(err)
+        console.warn(`[imageUtils] WebP conversion failed — ${url}: ${reason}`)
       }
     }
     await new Promise((r) => setTimeout(r, delayMs))

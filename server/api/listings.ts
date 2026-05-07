@@ -94,25 +94,34 @@ export async function handleListings(request: Request, env: Env): Promise<Respon
       .all<{ id: number; link: string }>()
     const pending = rows.results ?? []
     const queued = pending.length
+    let succeeded = 0
+    let failed = 0
 
-    void Promise.resolve()
-      .then(async () => {
-        if (process.env.PLAYWRIGHT_TEST === '1') return
-        for (const row of pending) {
-          try {
-            const lower = row.link.toLowerCase()
-            const buffers = lower.includes('redfin.com')
-              ? await fetchRedfinListingImages(row.link)
-              : await fetchNonRedfinOgImageBuffers(row.link)
-            if (buffers.length > 0) await replaceListingImages(env.DB, row.id, buffers)
-          } catch (err) {
-            console.error(`backfill-images failed for listing ${row.id}:`, err)
-          }
+    for (const row of pending) {
+      if (process.env.PLAYWRIGHT_TEST === '1') {
+        failed++
+        continue
+      }
+      try {
+        const lower = row.link.toLowerCase()
+        const buffers = lower.includes('redfin.com')
+          ? await fetchRedfinListingImages(row.link)
+          : await fetchNonRedfinOgImageBuffers(row.link)
+        if (buffers.length > 0) {
+          await replaceListingImages(env.DB, row.id, buffers)
+          succeeded++
+        } else {
+          failed++
+          console.warn(`[backfill] listing ${row.id}: image fetch failed — no images retrieved`)
         }
-      })
-      .catch((err) => console.error('backfill-images:', err))
+      } catch (err) {
+        failed++
+        const detail = err instanceof Error ? err.message : String(err)
+        console.warn(`[backfill] listing ${row.id}: image fetch failed — ${detail}`)
+      }
+    }
 
-    return Response.json({ ok: true, queued })
+    return Response.json({ ok: true, queued, succeeded, failed })
   }
 
   if (path === '/api/listings' && request.method === 'GET') {
