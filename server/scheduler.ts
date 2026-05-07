@@ -2,10 +2,12 @@ import cron from 'node-cron'
 import type { AppDatabase } from './db/app-database'
 import { getListingIdsByScrapedAt, notifyHuntsForNewListings } from './huntNotifications'
 import type { FeedEntry } from './types'
+import { replaceListingImageUrls } from './listingImageUrls'
 import { replaceListingImages } from './listingImages'
 import { fetchUrlsAsWebpBuffers } from './scrapers/imageUtils'
 import { extractRssImageUrls, fetchAndParse } from './scrapers/rssAdapter'
-import { fetchRedfinGisCsvListings, fetchRedfinListingImages, type RedfinParams } from './scrapers/redfinAdapter'
+import { findSourceForUrl } from './scrapers/sourceRegistry'
+import { fetchRedfinGisCsvListings, type RedfinParams } from './scrapers/redfinAdapter'
 
 export interface ScraperScheduleRow {
   id: number
@@ -123,8 +125,12 @@ export async function runScraperSource(
       if (ins.meta.changes > 0) {
         const newId = ins.meta.last_row_id
         if (process.env.PLAYWRIGHT_TEST !== '1') {
-          const buffers = await fetchRedfinListingImages(listing.link)
-          await replaceListingImages(db, newId, buffers)
+          const source = findSourceForUrl(listing.link)
+          if (source) {
+            const urls = await source.extractPhotoUrls(listing.link)
+            await replaceListingImageUrls(db, newId, urls)
+            await new Promise((r) => setTimeout(r, 200))
+          }
         }
       }
     }

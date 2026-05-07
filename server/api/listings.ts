@@ -1,7 +1,6 @@
 import type { Env, Listing } from '../types'
-import { replaceListingImages } from '../listingImages'
-import { fetchUrlsAsWebpBuffers } from '../scrapers/imageUtils'
-import { fetchRedfinListingImages } from '../scrapers/redfinAdapter'
+import { replaceListingImageUrls } from '../listingImageUrls'
+import { findSourceForUrl } from '../scrapers/sourceRegistry'
 
 const LISTING_STAGES = ['interested', 'contacted', 'tour_scheduled', 'rejected'] as const
 type ListingStage = (typeof LISTING_STAGES)[number]
@@ -23,44 +22,38 @@ function parseOptionalBit(value: string | null): 0 | 1 | undefined {
   return undefined
 }
 
-function extractOgImageUrl(html: string): string | null {
-  const ogMatch =
-    html.match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i) ??
-    html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image["']/i)
-  return ogMatch?.[1] ?? null
-}
-
-async function fetchNonRedfinOgImageBuffers(link: string): Promise<Buffer[]> {
-  try {
-    const res = await fetch(link, {
-      headers: {
-        Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-      },
-      signal: AbortSignal.timeout(15_000),
-    })
-    if (!res.ok) return []
-    const html = await res.text()
-    const url = extractOgImageUrl(html)
-    if (!url) return []
-    return fetchUrlsAsWebpBuffers([url], 1)
-  } catch {
-    return []
-  }
-}
-
 export async function handleListings(request: Request, env: Env): Promise<Response> {
   const url = new URL(request.url)
   const path = url.pathname.replace(/\/$/, '') || url.pathname
+
+  const imagesListMatch = path.match(/^\/api\/listings\/(\d+)\/images$/)
+  if (imagesListMatch && request.method === 'GET') {
+    const listingId = Number(imagesListMatch[1])
+    if (!Number.isFinite(listingId)) return Response.json({ error: 'Invalid listing id' }, { status: 400 })
+    const rows = await env.DB
+      .prepare('SELECT url FROM listing_image_urls WHERE listing_id = ? ORDER BY display_order ASC')
+      .bind(listingId)
+      .all<{ url: string }>()
+    const urls = (rows.results ?? []).map((r) => r.url)
+    return Response.json({ urls })
+  }
 
   const imagesCountMatch = path.match(/^\/api\/listings\/(\d+)\/images\/count$/)
   if (imagesCountMatch && request.method === 'GET') {
     const listingId = Number(imagesCountMatch[1])
     if (!Number.isFinite(listingId)) return Response.json({ error: 'Invalid listing id' }, { status: 400 })
-    const row = await env.DB
+    const urlRow = await env.DB
+      .prepare('SELECT COUNT(*) as count FROM listing_image_urls WHERE listing_id = ?')
+      .bind(listingId)
+      .first<{ count: number }>()
+    const byteRow = await env.DB
       .prepare('SELECT COUNT(*) as count FROM listing_images WHERE listing_id = ?')
       .bind(listingId)
       .first<{ count: number }>()
-    return Response.json({ count: row?.count ?? 0 })
+    const urlCount = urlRow?.count ?? 0
+    const byteCount = byteRow?.count ?? 0
+    const count = urlCount > 0 ? urlCount : byteCount
+    return Response.json({ count })
   }
 
   const imagesBlobMatch = path.match(/^\/api\/listings\/(\d+)\/images\/(\d+)$/)
@@ -89,7 +82,7 @@ export async function handleListings(request: Request, env: Env): Promise<Respon
     const rows = await env.DB
       .prepare(
         `SELECT id, link FROM listings
-         WHERE id NOT IN (SELECT DISTINCT listing_id FROM listing_images)`
+         WHERE id NOT IN (SELECT DISTINCT listing_id FROM listing_image_urls)`
       )
       .all<{ id: number; link: string }>()
     const pending = rows.results ?? []
@@ -98,21 +91,21 @@ export async function handleListings(request: Request, env: Env): Promise<Respon
     let failed = 0
 
     for (const row of pending) {
-      if (process.env.PLAYWRIGHT_TEST === '1') {
-        failed++
-        continue
-      }
       try {
-        const lower = row.link.toLowerCase()
-        const buffers = lower.includes('redfin.com')
-          ? await fetchRedfinListingImages(row.link)
-          : await fetchNonRedfinOgImageBuffers(row.link)
-        if (buffers.length > 0) {
-          await replaceListingImages(env.DB, row.id, buffers)
-          succeeded++
-        } else {
+        const source = findSourceForUrl(row.link)
+        if (!source) {
           failed++
-          console.warn(`[backfill] listing ${row.id}: image fetch failed — no images retrieved`)
+          console.warn(`[backfill] listing ${row.id}: no listing source for URL`)
+        } else {
+          const urls = await source.extractPhotoUrls(row.link)
+          if (urls.length > 0) {
+            await replaceListingImageUrls(env.DB, row.id, urls)
+            succeeded++
+            await new Promise((r) => setTimeout(r, 200))
+          } else {
+            failed++
+            console.warn(`[backfill] listing ${row.id}: image fetch failed — no images retrieved`)
+          }
         }
       } catch (err) {
         failed++

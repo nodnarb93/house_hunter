@@ -1,5 +1,6 @@
 import type { Env } from '../types'
 import { notifyHuntsForNewListings } from '../huntNotifications'
+import { replaceListingImageUrls } from '../listingImageUrls'
 import { replaceListingImages } from '../listingImages'
 import { buildRedfinBigPhotoCdnUrl, extractRedfinPropertyIdFromUrl } from '../scrapers/redfinAdapter'
 
@@ -68,6 +69,30 @@ export async function handleTestRoutes(request: Request, env: Env): Promise<Resp
     }
     await replaceListingImages(env.DB, listingId, buffers)
     return Response.json({ ok: true, count: buffers.length })
+  }
+
+  if (p === '/api/test/replace-listing-image-urls' && request.method === 'POST') {
+    let body: { listing_id?: unknown; urls?: unknown }
+    try {
+      body = (await request.json()) as { listing_id?: unknown; urls?: unknown }
+    } catch {
+      return Response.json({ error: 'Invalid JSON' }, { status: 400 })
+    }
+    const listingId = typeof body.listing_id === 'number' && Number.isInteger(body.listing_id) ? body.listing_id : null
+    if (listingId == null) return Response.json({ error: 'listing_id required' }, { status: 400 })
+    const exists = await env.DB.prepare('SELECT id FROM listings WHERE id = ?').bind(listingId).first<{ id: number }>()
+    if (!exists) return Response.json({ error: 'listing not found' }, { status: 404 })
+    const raw = body.urls
+    if (!Array.isArray(raw) || !raw.every((x) => typeof x === 'string')) {
+      return Response.json({ error: 'urls must be an array of strings' }, { status: 400 })
+    }
+    const urls = raw as string[]
+    await replaceListingImageUrls(env.DB, listingId, urls)
+    const row = await env.DB
+      .prepare('SELECT COUNT(*) as c FROM listing_image_urls WHERE listing_id = ?')
+      .bind(listingId)
+      .first<{ c: number }>()
+    return Response.json({ ok: true, rowCount: row?.c ?? 0 })
   }
 
   if (p === '/api/test/redfin-property-id' && request.method === 'POST') {

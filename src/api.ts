@@ -234,6 +234,13 @@ export async function testScraperById(id: number): Promise<{ ok: boolean; type?:
   return data as { ok: boolean; type?: string; count?: number; error?: string }
 }
 
+export async function getListingImageUrls(listingId: number): Promise<string[]> {
+  const r = await fetch(`${API}/listings/${listingId}/images`)
+  if (!r.ok) throw new Error(await r.text())
+  const data = (await r.json()) as { urls?: unknown }
+  return Array.isArray(data.urls) ? (data.urls as string[]) : []
+}
+
 export async function resolveRedfinUrl(
   url: string
 ): Promise<{ region_id: number; region_type: number; market: string }> {
