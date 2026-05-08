@@ -1,0 +1,8 @@
+URL:           https://www.redfin.com/OH/Grove-City/2590-Medora-Dr-43123/home/79498429
+Status:        202 Accepted
+Body bytes:    2049
+Duration ms:   867
+Out dir:       qa/captures/redfin-79498429-20260508
+extractPhotoUrls(body) count: 0
+extractPhotoUrls(body) error: none
+extractPhotoUrls first 3:    []

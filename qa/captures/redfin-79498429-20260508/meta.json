@@ -1,0 +1,13 @@
+{
+  "url": "https://www.redfin.com/OH/Grove-City/2590-Medora-Dr-43123/home/79498429",
+  "listingId": "79498429",
+  "fetchedAtUtc": "2026-05-08T05:38:42.584Z",
+  "durationMs": 867,
+  "host": "5294e1eca0a1",
+  "platform": "linux",
+  "nodeVersion": "v24.15.0",
+  "requestHeaders": {
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+  }
+}
