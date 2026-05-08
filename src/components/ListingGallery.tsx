@@ -19,14 +19,6 @@ export function ListingGallery({ listingId, onOpenLightbox }: Props) {
       .catch(() => setUrls([]))
   }, [listingId])
 
-  useEffect(() => {
-    if (urls == null || urls.length < 1) return
-    for (const u of urls) {
-      const im = new Image()
-      im.src = u
-    }
-  }, [listingId, urls])
-
   if (urls === null) {
     return (
       <div
@@ -59,15 +51,28 @@ export function ListingGallery({ listingId, onOpenLightbox }: Props) {
     setCurrent((c) => Math.min(count - 1, c + 1))
   }
 
+  const visibleIndices = Array.from(
+    new Set([Math.max(0, current - 1), current, Math.min(count - 1, current + 1)])
+  )
+
   return (
     <div data-testid="listing-gallery" className="relative h-40 w-full overflow-hidden">
-      <img
-        data-testid="listing-gallery-main-img"
-        src={urls[current]}
-        alt=""
-        className="h-40 w-full cursor-pointer object-cover"
-        onClick={() => onOpenLightbox(current, urls)}
-      />
+      {visibleIndices.map((idx) => {
+        const active = idx === current
+        return (
+          <img
+            key={idx}
+            {...(active ? { 'data-testid': 'listing-gallery-main-img' } : {})}
+            src={urls[idx]}
+            alt=""
+            loading="lazy"
+            className={`absolute inset-0 h-full w-full object-cover transition-opacity ${
+              active ? 'z-10 cursor-pointer opacity-100' : 'z-0 pointer-events-none opacity-0'
+            }`}
+            onClick={active ? () => onOpenLightbox(current, urls) : undefined}
+          />
+        )
+      })}
       {count > 1 ? (
         <>
           <button
@@ -75,7 +80,7 @@ export function ListingGallery({ listingId, onOpenLightbox }: Props) {
             data-testid="listing-gallery-prev"
             onClick={prev}
             disabled={current === 0}
-            className="absolute left-1 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full bg-black/50 text-white disabled:opacity-30"
+            className="absolute left-1 top-1/2 z-20 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full bg-black/50 text-white disabled:opacity-30"
             aria-label="Previous image"
           >
             ‹
@@ -85,12 +90,12 @@ export function ListingGallery({ listingId, onOpenLightbox }: Props) {
             data-testid="listing-gallery-next"
             onClick={next}
             disabled={current === count - 1}
-            className="absolute right-1 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full bg-black/50 text-white disabled:opacity-30"
+            className="absolute right-1 top-1/2 z-20 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full bg-black/50 text-white disabled:opacity-30"
             aria-label="Next image"
           >
             ›
           </button>
-          <span className="absolute bottom-1 right-2 rounded bg-black/40 px-1 text-xs text-white">
+          <span className="absolute bottom-1 right-2 z-20 rounded bg-black/40 px-1 text-xs text-white">
             {current + 1}/{count}
           </span>
         </>
