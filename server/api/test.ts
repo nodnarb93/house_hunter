@@ -1,8 +1,6 @@
 import type { Env } from '../types'
 import { notifyHuntsForNewListings } from '../huntNotifications'
 import { replaceListingImageUrls } from '../listingImageUrls'
-import { replaceListingImages } from '../listingImages'
-import { buildRedfinBigPhotoCdnUrl, extractRedfinPropertyIdFromUrl } from '../scrapers/redfinAdapter'
 
 export async function handleTestRoutes(request: Request, env: Env): Promise<Response> {
   if (process.env.PLAYWRIGHT_TEST !== '1') {
@@ -45,32 +43,6 @@ export async function handleTestRoutes(request: Request, env: Env): Promise<Resp
     return Response.json({ id }, { status: 201 })
   }
 
-  if (p === '/api/test/seed-listing-images' && request.method === 'POST') {
-    let body: { listing_id?: unknown; images_base64?: unknown }
-    try {
-      body = (await request.json()) as { listing_id?: unknown; images_base64?: unknown }
-    } catch {
-      return Response.json({ error: 'Invalid JSON' }, { status: 400 })
-    }
-    const listingId = typeof body.listing_id === 'number' && Number.isInteger(body.listing_id) ? body.listing_id : null
-    if (listingId == null) return Response.json({ error: 'listing_id required' }, { status: 400 })
-    const exists = await env.DB.prepare('SELECT id FROM listings WHERE id = ?').bind(listingId).first<{ id: number }>()
-    if (!exists) return Response.json({ error: 'listing not found' }, { status: 404 })
-    const raw = body.images_base64
-    if (!Array.isArray(raw) || raw.length === 0) {
-      return Response.json({ error: 'images_base64 must be a non-empty string array' }, { status: 400 })
-    }
-    const buffers: Buffer[] = []
-    for (const item of raw) {
-      if (typeof item !== 'string' || item.trim() === '') {
-        return Response.json({ error: 'each images_base64 entry must be a non-empty string' }, { status: 400 })
-      }
-      buffers.push(Buffer.from(item, 'base64'))
-    }
-    await replaceListingImages(env.DB, listingId, buffers)
-    return Response.json({ ok: true, count: buffers.length })
-  }
-
   if (p === '/api/test/replace-listing-image-urls' && request.method === 'POST') {
     let body: { listing_id?: unknown; urls?: unknown }
     try {
@@ -93,33 +65,6 @@ export async function handleTestRoutes(request: Request, env: Env): Promise<Resp
       .bind(listingId)
       .first<{ c: number }>()
     return Response.json({ ok: true, rowCount: row?.c ?? 0 })
-  }
-
-  if (p === '/api/test/redfin-property-id' && request.method === 'POST') {
-    let body: { url?: unknown }
-    try {
-      body = (await request.json()) as { url?: unknown }
-    } catch {
-      return Response.json({ error: 'Invalid JSON' }, { status: 400 })
-    }
-    const url = typeof body.url === 'string' ? body.url : ''
-    if (!url) return Response.json({ error: 'url required' }, { status: 400 })
-    return Response.json({ propertyId: extractRedfinPropertyIdFromUrl(url) })
-  }
-
-  if (p === '/api/test/redfin-cdn-bigphoto-url' && request.method === 'POST') {
-    let body: { property_id?: unknown; index?: unknown }
-    try {
-      body = (await request.json()) as { property_id?: unknown; index?: unknown }
-    } catch {
-      return Response.json({ error: 'Invalid JSON' }, { status: 400 })
-    }
-    const propertyId = typeof body.property_id === 'string' ? body.property_id : ''
-    const index = typeof body.index === 'number' && Number.isInteger(body.index) ? body.index : null
-    if (!propertyId || index == null) return Response.json({ error: 'property_id string and integer index required' }, { status: 400 })
-    const built = buildRedfinBigPhotoCdnUrl(propertyId, index)
-    if (!built) return Response.json({ error: 'invalid property_id or index' }, { status: 400 })
-    return Response.json({ url: built })
   }
 
   if (p === '/api/test/evaluate-notifications' && request.method === 'POST') {
