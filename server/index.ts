@@ -3,11 +3,17 @@ import { createApp } from './app'
 import { wrapDatabase } from './db/app-database'
 import { runMigrations } from './db/migrate'
 import { openRawDatabase } from './db/open-database'
+import { createDefaultSources, setSources } from './scrapers/sourceRegistry'
 import { startScheduledScrapes } from './scheduler'
 
 const raw = openRawDatabase()
 runMigrations(raw)
 const db = wrapDatabase(raw)
+
+if (process.env.HOUSE_HUNTER_TEST_MODE === '1') {
+  const { createRedfinFixtureFetch } = await import('./scrapers/fixtureFetch')
+  setSources(createDefaultSources({ redfinFetch: createRedfinFixtureFetch() }))
+}
 
 const app = createApp(db)
 
