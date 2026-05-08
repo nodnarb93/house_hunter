@@ -1,6 +1,3 @@
-import { readFileSync } from 'node:fs'
-import { join } from 'node:path'
-
 import type { ListingSource, RawListing } from './listingSource'
 import {
   REDFIN_FETCH_HEADERS,
@@ -11,6 +8,8 @@ import {
 } from './redfinAdapter'
 
 export class RedfinSource implements ListingSource {
+  constructor(private readonly fetchImpl: typeof fetch = fetch) {}
+
   matchesUrl(url: string): boolean {
     try {
       const h = new URL(url.trim()).hostname.toLowerCase()
@@ -29,15 +28,7 @@ export class RedfinSource implements ListingSource {
   }
 
   async extractPhotoUrls(listingUrl: string): Promise<string[]> {
-    if (process.env.PLAYWRIGHT_TEST === '1') {
-      try {
-        const html = readFileSync(join(process.cwd(), 'qa/fixtures/redfin-listing.html'), 'utf8')
-        return extractPhotoUrls(html)
-      } catch {
-        return []
-      }
-    }
-    const res = await fetch(listingUrl, {
+    const res = await this.fetchImpl(listingUrl, {
       headers: {
         Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
         ...REDFIN_FETCH_HEADERS,

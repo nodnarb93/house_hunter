@@ -71,13 +71,11 @@ export async function runScraperSource(
       const ins = await listingInsert.bind(null, null, e.title, e.link, priceCents, null, null, null, finishedAt).run()
       if (ins.meta.changes > 0) {
         const newId = ins.meta.last_row_id
-        if (process.env.PLAYWRIGHT_TEST !== '1') {
-          const source = findSourceForUrl(e.link)
-          if (source) {
-            const imageUrls = await source.extractPhotoUrls(e.link)
-            await replaceListingImageUrls(db, newId, imageUrls)
-            await new Promise((r) => setTimeout(r, 200))
-          }
+        const source = findSourceForUrl(e.link)
+        if (source) {
+          const imageUrls = await source.extractPhotoUrls(e.link)
+          await replaceListingImageUrls(db, newId, imageUrls)
+          await new Promise((r) => setTimeout(r, 200))
         }
       }
     }
@@ -125,13 +123,11 @@ export async function runScraperSource(
         .run()
       if (ins.meta.changes > 0) {
         const newId = ins.meta.last_row_id
-        if (process.env.PLAYWRIGHT_TEST !== '1') {
-          const source = findSourceForUrl(listing.link)
-          if (source) {
-            const urls = await source.extractPhotoUrls(listing.link)
-            await replaceListingImageUrls(db, newId, urls)
-            await new Promise((r) => setTimeout(r, 200))
-          }
+        const source = findSourceForUrl(listing.link)
+        if (source) {
+          const urls = await source.extractPhotoUrls(listing.link)
+          await replaceListingImageUrls(db, newId, urls)
+          await new Promise((r) => setTimeout(r, 200))
         }
       }
     }

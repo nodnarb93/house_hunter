@@ -1,13 +1,21 @@
 import type { Env } from '../types'
+import { resolveDatabasePath } from '../db/open-database'
 import { notifyHuntsForNewListings } from '../huntNotifications'
 import { replaceListingImageUrls } from '../listingImageUrls'
 
 export async function handleTestRoutes(request: Request, env: Env): Promise<Response> {
-  if (process.env.PLAYWRIGHT_TEST !== '1') {
+  if (process.env.HOUSE_HUNTER_TEST_MODE !== '1') {
     return new Response('Not found', { status: 404 })
   }
   const url = new URL(request.url)
   const p = url.pathname.replace(/\/+$/, '') || '/'
+
+  if (p === '/api/test/runtime-info' && request.method === 'GET') {
+    return Response.json({
+      database_path: resolveDatabasePath(),
+      test_mode: process.env.HOUSE_HUNTER_TEST_MODE === '1',
+    })
+  }
 
   if (p === '/api/test/seed-listing' && request.method === 'POST') {
     let body: Record<string, unknown>
