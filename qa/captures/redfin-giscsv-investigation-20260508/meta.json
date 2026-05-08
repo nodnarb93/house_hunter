@@ -1,0 +1,21 @@
+{
+  "url": "https://www.redfin.com/city/4664/OH/Columbus",
+  "fetchedAtUtc": "2026-05-08T06:09:07.427Z",
+  "durationMs": 1727,
+  "host": "5294e1eca0a1",
+  "platform": "linux",
+  "nodeVersion": "v24.15.0",
+  "requestHeaders": {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+  },
+  "gisCsvUrl": "https://www.redfin.com/stingray/api/gis-csv?al=1&market=columbus&num_homes=350&page_number=1&region_id=4664&region_type=6&status=9&v=8",
+  "parsedParams": {
+    "region_id": 4664,
+    "region_type": 6,
+    "market": "columbus",
+    "num_homes": 350,
+    "page_number": 1,
+    "status": 9,
+    "v": 8
+  }
+}

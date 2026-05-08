@@ -303,6 +303,11 @@ export async function fetchRedfinGisCsvCount(params: RedfinParams): Promise<numb
   return lines.length - 1
 }
 
+/** True when HTML appears to be an AWS WAF challenge page (bot check), not a listing. */
+export function isWafChallengeBody(html: string): boolean {
+  return /AwsWafIntegration\.getToken\(\)/.test(html)
+}
+
 /**
  * Extract image URLs from an already-fetched Redfin listing HTML document (no HTTP).
  * Order: `og:image`, then `"photoUrl":` keys in source order, then `ssl.cdn-redfin.com` `"url":` keys.

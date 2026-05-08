@@ -3,6 +3,7 @@ import {
   REDFIN_FETCH_HEADERS,
   extractPhotoUrls,
   fetchRedfinGisCsvListings,
+  isWafChallengeBody,
   parseRedfinUrl,
   type RedfinParams,
 } from './redfinAdapter'
@@ -35,8 +36,16 @@ export class RedfinSource implements ListingSource {
       },
       signal: AbortSignal.timeout(15_000),
     })
+    if (res.status === 202 && res.headers.get('x-amzn-waf-action') === 'challenge') {
+      console.error('[redfin] WAF challenge response — image fetch blocked for ' + listingUrl)
+      return []
+    }
     if (!res.ok) return []
     const html = await res.text()
+    if (isWafChallengeBody(html)) {
+      console.error('[redfin] WAF challenge response — image fetch blocked for ' + listingUrl)
+      return []
+    }
     return extractPhotoUrls(html)
   }
 }
