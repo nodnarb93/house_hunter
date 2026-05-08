@@ -1,0 +1,17 @@
+{
+  "access-control-allow-methods": "OPTIONS,GET,POST",
+  "access-control-allow-origin": "*",
+  "access-control-expose-headers": "x-amzn-waf-action",
+  "access-control-max-age": "86400",
+  "cache-control": "no-store, max-age=0",
+  "connection": "keep-alive",
+  "content-length": "2049",
+  "content-type": "text/html; charset=UTF-8",
+  "date": "Fri, 08 May 2026 05:38:44 GMT",
+  "server": "CloudFront",
+  "via": "1.1 648da69bb4c2221c403be08a06311d98.cloudfront.net (CloudFront)",
+  "x-amz-cf-id": "v1KroHmOIRupiBIRh_tq4AUJxc_giytUgFvPDYxNhGRe2XPoYdKKfQ==",
+  "x-amz-cf-pop": "ARN56-P1",
+  "x-amzn-waf-action": "challenge",
+  "x-cache": "Error from cloudfront"
+}
