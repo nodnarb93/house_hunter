@@ -1,0 +1,13 @@
+Search URL:    https://www.redfin.com/city/4664/OH/Columbus
+GIS-CSV URL:   https://www.redfin.com/stingray/api/gis-csv?al=1&market=columbus&num_homes=350&page_number=1&region_id=4664&region_type=6&status=9&v=8
+Status:        200 OK
+Body bytes:    92685
+Duration ms:   1727
+Out dir:       qa/captures/redfin-giscsv-investigation-20260508
+Body file:     body.csv
+First 5 lines:
+SALE TYPE,SOLD DATE,PROPERTY TYPE,ADDRESS,CITY,STATE OR PROVINCE,ZIP OR POSTAL CODE,PRICE,BEDS,BATHS,LOCATION,SQUARE FEET,LOT SIZE,YEAR BUILT,DAYS ON MARKET,$/SQUARE FEET,HOA/MONTH,STATUS,NEXT OPEN HOUSE START TIME,NEXT OPEN HOUSE END TIME,URL (SEE https://www.redfin.com/buy-a-home/comparative-market-analysis FOR INFO ON PRICING),SOURCE,MLS#,FAVORITE,INTERESTED,LATITUDE,LONGITUDE
+"In accordance with local MLS rules, some MLS listings are not included in the download"
+MLS Listing,,Single Family Residential,1380 Stanwix Ct,Columbus,OH,43223,365000,4,4.0,Columbus,1786,9583,1993,13,204,,Active,,,https://www.redfin.com/OH/Columbus/1380-Stanwix-Ct-43223/home/79708871,CBRMLS,226013015,N,Y,39.9275769,-83.0513606
+MLS Listing,,Single Family Residential,6841 Riverside Glen Ct,Dublin,OH,43017,482000,4,2.5,Dublin,1856,15681,1994,22,260,,Active,,,https://www.redfin.com/OH/Dublin/6841-Riverside-Glen-Ct-43017/home/100777905,CBRMLS,226012189,N,Y,40.0937128,-83.0987655
+MLS Listing,,Condo/Co-op,1190 N Grant Ave Unit A,Columbus,OH,43201,499900,3,3.5,Columbus,2000,871,2019,28,250,200,Active,,,https://www.redfin.com/OH/Columbus/1190-N-Grant-Ave-43201/unit-A/home/169640058,CBRMLS,226010487,N,Y,39.9877969,-82.9958729

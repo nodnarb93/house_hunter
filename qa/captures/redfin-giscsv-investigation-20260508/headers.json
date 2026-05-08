@@ -1,0 +1,20 @@
+{
+  "cache-control": "public, max-age=900",
+  "connection": "keep-alive",
+  "content-disposition": "attachment; filename=redfin_2026-05-07-23-09-10.csv",
+  "content-encoding": "gzip",
+  "content-language": "und",
+  "content-length": "24439",
+  "content-type": "text/csv;charset=UTF-8",
+  "date": "Fri, 08 May 2026 06:09:10 GMT",
+  "server": "Apache",
+  "set-cookie": "[REDACTED]",
+  "vary": "Accept-Encoding",
+  "via": "1.1 bfeae0ecbffe44ad98e5cd0ae83bdb4a.cloudfront.net (CloudFront)",
+  "x-amz-cf-id": "Jj0j_fBP_jI0LBsZi0pIb7AAkCEYDrWS6qBTYNJzpqCTnq7JFLj9MQ==",
+  "x-amz-cf-pop": "ARN56-P1",
+  "x-cache": "Miss from cloudfront",
+  "x-content-type-options": "nosniff",
+  "x-frame-options": "SAMEORIGIN",
+  "x-ua-compatible": "IE=edge"
+}
