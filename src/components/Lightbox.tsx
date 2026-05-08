@@ -1,13 +1,12 @@
 import { useEffect, useState } from 'react'
 
 interface Props {
-  listingId: number
+  imageUrls: string[]
   initialIndex: number
-  imageCount: number
   onClose: () => void
 }
 
-export function Lightbox({ listingId, initialIndex, imageCount, onClose }: Props) {
+export function Lightbox({ imageUrls, initialIndex, onClose }: Props) {
   const [current, setCurrent] = useState(initialIndex)
 
   useEffect(() => {
@@ -18,6 +17,9 @@ export function Lightbox({ listingId, initialIndex, imageCount, onClose }: Props
     return () => window.removeEventListener('keydown', handler)
   }, [onClose])
 
+  const imageCount = imageUrls.length
+  const src = imageUrls[current]
+
   return (
     <div
       data-testid="listing-lightbox-overlay"
@@ -26,12 +28,7 @@ export function Lightbox({ listingId, initialIndex, imageCount, onClose }: Props
       role="presentation"
     >
       <div className="relative max-h-[90vh] max-w-[90vw]" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal>
-        <img
-          data-testid="listing-lightbox-img"
-          src={`/api/listings/${listingId}/images/${current}`}
-          alt=""
-          className="max-h-[90vh] max-w-[90vw] object-contain"
-        />
+        <img data-testid="listing-lightbox-img" src={src} alt="" className="max-h-[90vh] max-w-[90vw] object-contain" />
         {imageCount > 1 ? (
           <>
             <button

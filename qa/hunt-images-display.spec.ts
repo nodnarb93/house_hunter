@@ -1,9 +1,5 @@
 import { test, expect } from '@playwright/test'
 
-/** Minimal valid WebP blob (2×2 px) for test DB seeding — generated via sharp. */
-const WEBP_RED =
-  'UklGRjwAAABXRUJQVlA4IDAAAADQAQCdASoCAAIAAUAmJaACdLoB+AADsAD+8ut//NgVzXPv9//S4P0uD9Lg/9KQAAA='
-
 test.describe('Hunt images display', () => {
   let huntId: number | undefined
   let listingId: number | undefined
@@ -46,8 +42,11 @@ test.describe('Hunt images display', () => {
     expect(seed.status()).toBe(201)
     ;({ id: listingId } = (await seed.json()) as { id: number })
 
-    const imgSeed = await request.post('/api/test/seed-listing-images', {
-      data: { listing_id: listingId, images_base64: [WEBP_RED] },
+    const imgSeed = await request.post('/api/test/replace-listing-image-urls', {
+      data: {
+        listing_id: listingId,
+        urls: ['https://ssl.cdn-redfin.com/photo/1/mbphotowidth/79708871_0_o.jpg'],
+      },
     })
     expect(imgSeed.status()).toBe(200)
 

@@ -1,32 +1,33 @@
 import { useEffect, useState } from 'react'
 
+import { getListingImageUrls } from '../api'
+
 interface Props {
   listingId: number
-  onOpenLightbox: (index: number, count: number) => void
+  onOpenLightbox: (index: number, imageUrls: string[]) => void
 }
 
 export function ListingGallery({ listingId, onOpenLightbox }: Props) {
-  const [count, setCount] = useState<number | null>(null)
+  const [urls, setUrls] = useState<string[] | null>(null)
   const [current, setCurrent] = useState(0)
 
   useEffect(() => {
-    setCount(null)
+    setUrls(null)
     setCurrent(0)
-    void fetch(`/api/listings/${listingId}/images/count`)
-      .then((r) => r.json())
-      .then((d: { count: number }) => setCount(d.count))
-      .catch(() => setCount(0))
+    void getListingImageUrls(listingId)
+      .then(setUrls)
+      .catch(() => setUrls([]))
   }, [listingId])
 
   useEffect(() => {
-    if (count === null || count < 1) return
-    for (let i = 0; i < count; i++) {
+    if (urls == null || urls.length < 1) return
+    for (const u of urls) {
       const im = new Image()
-      im.src = `/api/listings/${listingId}/images/${i}`
+      im.src = u
     }
-  }, [listingId, count])
+  }, [listingId, urls])
 
-  if (count === null) {
+  if (urls === null) {
     return (
       <div
         data-testid="listing-gallery-loading"
@@ -36,7 +37,7 @@ export function ListingGallery({ listingId, onOpenLightbox }: Props) {
       </div>
     )
   }
-  if (count === 0) {
+  if (urls.length === 0) {
     return (
       <div
         data-testid="listing-gallery-empty"
@@ -46,6 +47,8 @@ export function ListingGallery({ listingId, onOpenLightbox }: Props) {
       </div>
     )
   }
+
+  const count = urls.length
 
   const prev = (e: React.MouseEvent) => {
     e.stopPropagation()
@@ -60,10 +63,10 @@ export function ListingGallery({ listingId, onOpenLightbox }: Props) {
     <div data-testid="listing-gallery" className="relative h-40 w-full overflow-hidden">
       <img
         data-testid="listing-gallery-main-img"
-        src={`/api/listings/${listingId}/images/${current}`}
+        src={urls[current]}
         alt=""
         className="h-40 w-full cursor-pointer object-cover"
-        onClick={() => onOpenLightbox(current, count)}
+        onClick={() => onOpenLightbox(current, urls)}
       />
       {count > 1 ? (
         <>

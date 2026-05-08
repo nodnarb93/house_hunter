@@ -64,8 +64,10 @@ test.describe('BIZ-53 gallery images', () => {
     expect(seed.status()).toBe(201)
     const { id: listingId } = (await seed.json()) as { id: number }
 
-    const imgSeed = await request.post('/api/test/seed-listing-images', {
-      data: { listing_id: listingId, images_base64: [WEBP_RED, WEBP_BLUE] },
+    const cdnA = 'https://ssl.cdn-redfin.com/photo/1/mbphotowidth/79708871_0_o.jpg'
+    const cdnB = 'https://ssl.cdn-redfin.com/photo/1/mbphotowidth/79708871_1_o.jpg'
+    const imgSeed = await request.post('/api/test/replace-listing-image-urls', {
+      data: { listing_id: listingId, urls: [cdnA, cdnB] },
     })
     expect(imgSeed.status()).toBe(200)
 
@@ -75,7 +77,7 @@ test.describe('BIZ-53 gallery images', () => {
     await expect(mainImg).toBeVisible({ timeout: 20_000 })
     const firstSrc = await mainImg.getAttribute('src')
     await page.getByTestId('listing-gallery-next').first().click()
-    await expect(mainImg).toHaveAttribute('src', `/api/listings/${listingId}/images/1`)
+    await expect(mainImg).toHaveAttribute('src', cdnB)
     const secondSrc = await mainImg.getAttribute('src')
     expect(firstSrc).toBeTruthy()
     expect(secondSrc).toBeTruthy()

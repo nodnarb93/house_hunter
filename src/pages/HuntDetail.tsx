@@ -47,7 +47,7 @@ export default function HuntDetail() {
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [drawerOpen, setDrawerOpen] = useState(false)
-  const [lightbox, setLightbox] = useState<{ listingId: number; index: number; count: number } | null>(null)
+  const [lightbox, setLightbox] = useState<{ index: number; imageUrls: string[] } | null>(null)
 
   const [nameDraft, setNameDraft] = useState('')
   const [minPrice, setMinPrice] = useState('')
@@ -555,7 +555,7 @@ export default function HuntDetail() {
                   >
                     <ListingGallery
                       listingId={r.id}
-                      onOpenLightbox={(idx, count) => setLightbox({ listingId: r.id, index: idx, count })}
+                      onOpenLightbox={(idx, imageUrls) => setLightbox({ index: idx, imageUrls })}
                     />
                     <div className="flex flex-1 flex-col gap-1 p-3">
                       <p className="text-lg font-bold text-white">{formatPrice(r.price_cents)}</p>
@@ -592,9 +592,8 @@ export default function HuntDetail() {
           {configDrawer}
           {lightbox ? (
             <Lightbox
-              listingId={lightbox.listingId}
+              imageUrls={lightbox.imageUrls}
               initialIndex={lightbox.index}
-              imageCount={lightbox.count}
               onClose={() => setLightbox(null)}
             />
           ) : null}
