@@ -1,0 +1,40 @@
+=== Gallery probe: cover + first 5 gallery indices, version 0 ===
+mls=226013015 cover[_0.jpg]=200
+  gallery[_1_0.jpg]=404  https://ssl.cdn-redfin.com/photo/160/bigphoto/015/226013015_1_0.jpg
+  gallery[_2_0.jpg]=404  https://ssl.cdn-redfin.com/photo/160/bigphoto/015/226013015_2_0.jpg
+  gallery[_3_0.jpg]=404  https://ssl.cdn-redfin.com/photo/160/bigphoto/015/226013015_3_0.jpg
+  gallery[_4_0.jpg]=404  https://ssl.cdn-redfin.com/photo/160/bigphoto/015/226013015_4_0.jpg
+  gallery[_5_0.jpg]=404  https://ssl.cdn-redfin.com/photo/160/bigphoto/015/226013015_5_0.jpg
+mls=226010487 cover[_0.jpg]=200
+  gallery[_1_0.jpg]=404  https://ssl.cdn-redfin.com/photo/160/bigphoto/487/226010487_1_0.jpg
+  gallery[_2_0.jpg]=404  https://ssl.cdn-redfin.com/photo/160/bigphoto/487/226010487_2_0.jpg
+  gallery[_3_0.jpg]=404  https://ssl.cdn-redfin.com/photo/160/bigphoto/487/226010487_3_0.jpg
+  gallery[_4_0.jpg]=404  https://ssl.cdn-redfin.com/photo/160/bigphoto/487/226010487_4_0.jpg
+  gallery[_5_0.jpg]=404  https://ssl.cdn-redfin.com/photo/160/bigphoto/487/226010487_5_0.jpg
+mls=226004191 cover[_0.jpg]=200
+  gallery[_1_0.jpg]=404  https://ssl.cdn-redfin.com/photo/160/bigphoto/191/226004191_1_0.jpg
+  gallery[_2_0.jpg]=404  https://ssl.cdn-redfin.com/photo/160/bigphoto/191/226004191_2_0.jpg
+  gallery[_3_0.jpg]=404  https://ssl.cdn-redfin.com/photo/160/bigphoto/191/226004191_3_0.jpg
+  gallery[_4_0.jpg]=404  https://ssl.cdn-redfin.com/photo/160/bigphoto/191/226004191_4_0.jpg
+  gallery[_5_0.jpg]=404  https://ssl.cdn-redfin.com/photo/160/bigphoto/191/226004191_5_0.jpg
+mls=226016222 cover[_0.jpg]=200
+  gallery[_1_0.jpg]=200  https://ssl.cdn-redfin.com/photo/160/bigphoto/222/226016222_1_0.jpg
+  gallery[_2_0.jpg]=200  https://ssl.cdn-redfin.com/photo/160/bigphoto/222/226016222_2_0.jpg
+  gallery[_3_0.jpg]=200  https://ssl.cdn-redfin.com/photo/160/bigphoto/222/226016222_3_0.jpg
+  gallery[_4_0.jpg]=200  https://ssl.cdn-redfin.com/photo/160/bigphoto/222/226016222_4_0.jpg
+  gallery[_5_0.jpg]=200  https://ssl.cdn-redfin.com/photo/160/bigphoto/222/226016222_5_0.jpg
+mls=226016215 cover[_0.jpg]=200
+  gallery[_1_0.jpg]=200  https://ssl.cdn-redfin.com/photo/160/bigphoto/215/226016215_1_0.jpg
+  gallery[_2_0.jpg]=200  https://ssl.cdn-redfin.com/photo/160/bigphoto/215/226016215_2_0.jpg
+  gallery[_3_0.jpg]=200  https://ssl.cdn-redfin.com/photo/160/bigphoto/215/226016215_3_0.jpg
+  gallery[_4_0.jpg]=200  https://ssl.cdn-redfin.com/photo/160/bigphoto/215/226016215_4_0.jpg
+  gallery[_5_0.jpg]=200  https://ssl.cdn-redfin.com/photo/160/bigphoto/215/226016215_5_0.jpg
+=== Gallery cross-version probe for cases where _{idx}_0 missed ===
+  HIT mls=226010487 idx=1 v=1 -> https://ssl.cdn-redfin.com/photo/160/bigphoto/487/226010487_1_1.jpg
+  HIT mls=226010487 idx=2 v=1 -> https://ssl.cdn-redfin.com/photo/160/bigphoto/487/226010487_2_1.jpg
+  HIT mls=226010487 idx=3 v=1 -> https://ssl.cdn-redfin.com/photo/160/bigphoto/487/226010487_3_1.jpg
+  HIT mls=226004191 idx=1 v=5 -> https://ssl.cdn-redfin.com/photo/160/bigphoto/191/226004191_1_5.jpg
+  HIT mls=226004191 idx=2 v=4 -> https://ssl.cdn-redfin.com/photo/160/bigphoto/191/226004191_2_4.jpg
+  HIT mls=226004191 idx=3 v=3 -> https://ssl.cdn-redfin.com/photo/160/bigphoto/191/226004191_3_3.jpg
+=== Done ===
+=== Try other /photo/N/ values for cover of mls=226013015 ===

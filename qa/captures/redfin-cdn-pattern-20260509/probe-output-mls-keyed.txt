@@ -1,0 +1,25 @@
+=== Probe re-run on 2026-05-09 with MLS# as the CDN key ===
+=== gis-csv source: market=columbus, region_id=4664, region_type=6, status=9 (active only) ===
+
+
+=== summary: 19/20 live (cover v=0, prefix /photo/160/, key=MLS#) ===
+HIT src=CBRMLS mls=226013015 pid=79708871 bucket=015 cover_v0=200 url=https://ssl.cdn-redfin.com/photo/160/bigphoto/015/226013015_0.jpg
+HIT src=CBRMLS mls=226012189 pid=100777905 bucket=189 cover_v0=200 url=https://ssl.cdn-redfin.com/photo/160/bigphoto/189/226012189_0.jpg
+HIT src=CBRMLS mls=226010487 pid=169640058 bucket=487 cover_v0=200 url=https://ssl.cdn-redfin.com/photo/160/bigphoto/487/226010487_0.jpg
+HIT src=CBRMLS mls=226005936 pid=200741702 bucket=936 cover_v0=200 url=https://ssl.cdn-redfin.com/photo/160/bigphoto/936/226005936_0.jpg
+HIT src=CBRMLS mls=226004191 pid=79577150 bucket=191 cover_v0=200 url=https://ssl.cdn-redfin.com/photo/160/bigphoto/191/226004191_0.jpg
+HIT src=CBRMLS mls=226016227 pid=100749060 bucket=227 cover_v0=200 url=https://ssl.cdn-redfin.com/photo/160/bigphoto/227/226016227_0.jpg
+HIT src=CBRMLS mls=226016224 pid=75698408 bucket=224 cover_v0=200 url=https://ssl.cdn-redfin.com/photo/160/bigphoto/224/226016224_0.jpg
+HIT src=CBRMLS mls=226016222 pid=79641287 bucket=222 cover_v0=200 url=https://ssl.cdn-redfin.com/photo/160/bigphoto/222/226016222_0.jpg
+MISS src=CBRMLS mls=226016218 pid=100736550 bucket=218 cover_v0=404 url=https://ssl.cdn-redfin.com/photo/160/bigphoto/218/226016218_0.jpg
+HIT src=CBRMLS mls=226016215 pid=70235096 bucket=215 cover_v0=200 url=https://ssl.cdn-redfin.com/photo/160/bigphoto/215/226016215_0.jpg
+HIT src=CBRMLS mls=226016214 pid=100719486 bucket=214 cover_v0=200 url=https://ssl.cdn-redfin.com/photo/160/bigphoto/214/226016214_0.jpg
+HIT src=CBRMLS mls=226016213 pid=79587993 bucket=213 cover_v0=200 url=https://ssl.cdn-redfin.com/photo/160/bigphoto/213/226016213_0.jpg
+HIT src=CBRMLS mls=226016211 pid=193893527 bucket=211 cover_v0=200 url=https://ssl.cdn-redfin.com/photo/160/bigphoto/211/226016211_0.jpg
+HIT src=CBRMLS mls=226016207 pid=79731789 bucket=207 cover_v0=200 url=https://ssl.cdn-redfin.com/photo/160/bigphoto/207/226016207_0.jpg
+HIT src=CBRMLS mls=226016206 pid=75625396 bucket=206 cover_v0=200 url=https://ssl.cdn-redfin.com/photo/160/bigphoto/206/226016206_0.jpg
+HIT src=CBRMLS mls=226016205 pid=100729486 bucket=205 cover_v0=200 url=https://ssl.cdn-redfin.com/photo/160/bigphoto/205/226016205_0.jpg
+HIT src=CBRMLS mls=226016203 pid=75636259 bucket=203 cover_v0=200 url=https://ssl.cdn-redfin.com/photo/160/bigphoto/203/226016203_0.jpg
+HIT src=CBRMLS mls=226016196 pid=75593230 bucket=196 cover_v0=200 url=https://ssl.cdn-redfin.com/photo/160/bigphoto/196/226016196_0.jpg
+HIT src=CBRMLS mls=226016197 pid=79538627 bucket=197 cover_v0=200 url=https://ssl.cdn-redfin.com/photo/160/bigphoto/197/226016197_0.jpg
+HIT src=CBRMLS mls=226015050 pid=79535436 bucket=050 cover_v0=200 url=https://ssl.cdn-redfin.com/photo/160/bigphoto/050/226015050_0.jpg
