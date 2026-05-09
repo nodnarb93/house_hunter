@@ -53,10 +53,10 @@ export async function handleListings(request: Request, env: Env): Promise<Respon
   if (path === '/api/listings/backfill-images' && request.method === 'POST') {
     const rows = await env.DB
       .prepare(
-        `SELECT id, link FROM listings
+        `SELECT id, link, mls_number FROM listings
          WHERE id NOT IN (SELECT DISTINCT listing_id FROM listing_image_urls)`
       )
-      .all<{ id: number; link: string }>()
+      .all<{ id: number; link: string; mls_number: string | null }>()
     const pending = rows.results ?? []
     const queued = pending.length
     let succeeded = 0
@@ -69,7 +69,7 @@ export async function handleListings(request: Request, env: Env): Promise<Respon
           failed++
           console.warn(`[backfill] listing ${row.id}: no listing source for URL`)
         } else {
-          const urls = await source.extractPhotoUrls(row.link)
+          const urls = await source.extractPhotoUrls(row.link, { mlsNumber: row.mls_number })
           if (urls.length > 0) {
             await replaceListingImageUrls(env.DB, row.id, urls)
             succeeded++

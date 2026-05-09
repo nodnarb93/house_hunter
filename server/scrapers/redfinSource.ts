@@ -1,12 +1,10 @@
-import type { ListingSource, RawListing } from './listingSource'
+import type { ListingSource, PhotoUrlHints, RawListing } from './listingSource'
 import {
-  REDFIN_FETCH_HEADERS,
-  extractPhotoUrls,
   fetchRedfinGisCsvListings,
-  isWafChallengeBody,
   parseRedfinUrl,
   type RedfinParams,
 } from './redfinAdapter'
+import { fetchRedfinCdnPhotoUrls } from './redfinCdnPhotoFetcher'
 
 export class RedfinSource implements ListingSource {
   constructor(private readonly fetchImpl: typeof fetch = fetch) {}
@@ -28,24 +26,11 @@ export class RedfinSource implements ListingSource {
     return fetchRedfinGisCsvListings(params as RedfinParams)
   }
 
-  async extractPhotoUrls(listingUrl: string): Promise<string[]> {
-    const res = await this.fetchImpl(listingUrl, {
-      headers: {
-        Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-        ...REDFIN_FETCH_HEADERS,
-      },
-      signal: AbortSignal.timeout(15_000),
-    })
-    if (res.status === 202 && res.headers.get('x-amzn-waf-action') === 'challenge') {
-      console.error('[redfin] WAF challenge response — image fetch blocked for ' + listingUrl)
+  async extractPhotoUrls(_listingUrl: string, hints?: PhotoUrlHints): Promise<string[]> {
+    const mls = hints?.mlsNumber
+    if (mls == null || mls === '') {
       return []
     }
-    if (!res.ok) return []
-    const html = await res.text()
-    if (isWafChallengeBody(html)) {
-      console.error('[redfin] WAF challenge response — image fetch blocked for ' + listingUrl)
-      return []
-    }
-    return extractPhotoUrls(html)
+    return fetchRedfinCdnPhotoUrls(mls, { fetchImpl: this.fetchImpl })
   }
 }

@@ -1,32 +1,40 @@
-import { readFileSync } from 'node:fs'
-import path from 'node:path'
-import { fileURLToPath } from 'node:url'
 import { test, expect } from '@playwright/test'
 import { RedfinSource } from '../server/scrapers/redfinSource'
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url))
-const FIXTURE_HTML = readFileSync(path.join(__dirname, 'fixtures', 'redfin-listing.html'), 'utf8')
-
-function makeFakeFetch(): typeof fetch {
-  return (async () => new Response(FIXTURE_HTML, { status: 200, headers: { 'content-type': 'text/html' } })) as typeof fetch
+function makeCdnOkFetch(mls: string, bucket: string): typeof fetch {
+  const expected = `https://ssl.cdn-redfin.com/photo/160/bigphoto/${bucket}/${mls}_0.jpg`
+  return (async (input: RequestInfo | URL, init?: RequestInit) => {
+    const u = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
+    if (u === expected && init?.method === 'HEAD') {
+      return new Response(null, { status: 200, headers: { 'content-type': 'image/jpeg' } })
+    }
+    return new Response(null, { status: 404 })
+  }) as typeof fetch
 }
 
-test.describe('BIZ-79 RedfinSource production extractor', () => {
-  test('returns ssl.cdn-redfin.com URLs from injected fetch (PLAYWRIGHT_TEST unset)', async () => {
+test.describe('BIZ-79 RedfinSource CDN extractor', () => {
+  test('returns ssl.cdn-redfin.com URL when MLS hint is provided (injected fetch)', async () => {
     delete process.env.PLAYWRIGHT_TEST
-    const src = new RedfinSource(makeFakeFetch())
-    const urls = await src.extractPhotoUrls('https://www.redfin.com/example/home/123')
-    expect(urls.length).toBeGreaterThanOrEqual(1)
-    for (const u of urls) expect(u.startsWith('https://ssl.cdn-redfin.com/')).toBe(true)
+    const mls = '226013015'
+    const src = new RedfinSource(makeCdnOkFetch(mls, '015'))
+    const urls = await src.extractPhotoUrls('https://www.redfin.com/OH/Columbus/home/79708871', { mlsNumber: mls })
+    expect(urls).toEqual([`https://ssl.cdn-redfin.com/photo/160/bigphoto/015/${mls}_0.jpg`])
   })
 
-  test('PLAYWRIGHT_TEST=1 has no effect on the production extractor', async () => {
+  test('PLAYWRIGHT_TEST=1 has no effect on CDN extraction', async () => {
     const prev = process.env.PLAYWRIGHT_TEST
+    const mls = '226013015'
     try {
       delete process.env.PLAYWRIGHT_TEST
-      const baseline = await new RedfinSource(makeFakeFetch()).extractPhotoUrls('https://www.redfin.com/example/home/123')
+      const baseline = await new RedfinSource(makeCdnOkFetch(mls, '015')).extractPhotoUrls(
+        'https://www.redfin.com/OH/Columbus/home/79708871',
+        { mlsNumber: mls },
+      )
       process.env.PLAYWRIGHT_TEST = '1'
-      const withFlag = await new RedfinSource(makeFakeFetch()).extractPhotoUrls('https://www.redfin.com/example/home/123')
+      const withFlag = await new RedfinSource(makeCdnOkFetch(mls, '015')).extractPhotoUrls(
+        'https://www.redfin.com/OH/Columbus/home/79708871',
+        { mlsNumber: mls },
+      )
       expect(withFlag).toEqual(baseline)
     } finally {
       if (prev === undefined) delete process.env.PLAYWRIGHT_TEST
