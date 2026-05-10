@@ -4,7 +4,8 @@ test.describe('BIZ-103 sidebar — desktop', () => {
   test.use({ viewport: { width: 1280, height: 800 } })
 
   test.beforeEach(async ({ page }) => {
-    await page.addInitScript(() => window.localStorage.clear())
+    await page.goto('/')
+    await page.evaluate(() => window.localStorage.clear())
   })
 
   test('defaults open, hamburger toggles, state persists across reload', async ({ page }) => {
@@ -42,7 +43,8 @@ test.describe('BIZ-103 sidebar — mobile', () => {
   test.use({ viewport: { width: 390, height: 844 } })
 
   test.beforeEach(async ({ page }) => {
-    await page.addInitScript(() => window.localStorage.clear())
+    await page.goto('/')
+    await page.evaluate(() => window.localStorage.clear())
   })
 
   test('defaults closed, opens as overlay without reflowing main', async ({ page }) => {
