@@ -1,0 +1,9 @@
+{
+  "polluted_rows_deleted": 714,
+  "mls_backfilled": 226,
+  "image_fetches_succeeded": 226,
+  "image_fetches_failed": 0,
+  "redfin_listings_skipped_no_mls": 131,
+  "non_redfin_listings_skipped": 2,
+  "ranAt": "2026-05-10T07:22:05.908Z"
+}
