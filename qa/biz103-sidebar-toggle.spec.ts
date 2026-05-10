@@ -15,13 +15,12 @@ test.describe('BIZ-103 sidebar — desktop', () => {
     await expect(toggle).toBeVisible()
 
     await expect(sidebar).not.toHaveClass(/-translate-x-full/)
-    const mlOpen = await page.locator('main').evaluate((el) => parseFloat(getComputedStyle(el).marginLeft))
-    expect(mlOpen).toBeGreaterThan(200)
+    const main = page.locator('main')
+    await expect(main).toHaveCSS('margin-left', '240px')
 
     await toggle.click()
     await expect(sidebar).toHaveClass(/-translate-x-full/)
-    const mlClosed = await page.locator('main').evaluate((el) => parseFloat(getComputedStyle(el).marginLeft))
-    expect(mlClosed).toBeLessThan(20)
+    await expect(main).toHaveCSS('margin-left', '0px')
 
     await page.reload()
     await expect(page.getByTestId('sidebar')).toHaveClass(/-translate-x-full/)
@@ -55,8 +54,7 @@ test.describe('BIZ-103 sidebar — mobile', () => {
     await expect(sidebar).not.toHaveClass(/-translate-x-full/)
     await expect(page.getByTestId('sidebar-backdrop')).toBeVisible()
 
-    const mainMl = await page.locator('main').evaluate((el) => parseFloat(getComputedStyle(el).marginLeft))
-    expect(mainMl).toBeLessThan(20)
+    await expect(page.locator('main')).toHaveCSS('margin-left', '0px')
   })
 
   test('backdrop click closes; Esc closes; focus enters sidebar on open', async ({ page }) => {
