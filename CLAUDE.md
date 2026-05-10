@@ -57,6 +57,18 @@ This policy is enforced through agent instructions (each agent's [AGENTS.md](AGE
 - `npm run test:list` is preferred for CI-style output.
 - Console errors (uncaught exceptions, 5xx on navigation) should be treated as failures when writing tests.
 
+## Closing gates for user-visible changes
+
+**Any issue that changes user-visible behavior** — image/photo rendering, dashboard layout, listing cards, lightbox, search results, hunt-detail pages, navigation flows, or anything else the Board user views in a browser — **must pass a Beta Tester visual-verification step before it can close.**
+
+The Beta Tester (currently agent `a8270505-6fc1-4500-aee3-8f26bea4debb`) runs the changed feature in a real browser session against the live or test database, captures a screenshot, and confirms in a comment that the user-visible behavior matches the issue's intent. Screenshot committed to `qa/captures/{issue-identifier}-visual-{YYYYMMDD}/dashboard.png` (or equivalent path for non-dashboard surfaces).
+
+This gate is in addition to, not instead of, automated tests. Tests prove code does what it was written to do; visual verification proves the feature works as a user would experience it. Both are required for user-visible changes.
+
+The Board user is **not** the visual verifier. If a screenshot or visual confirmation is needed for an issue to close, that work belongs to the Beta Tester. Do not ship by handing the closing visual check back to the Board user.
+
+**Code-only / backend-only changes** (database migrations, scheduler internals, API logic with no UI surface) do not require this gate. Tests are sufficient.
+
 ## Local full-stack notes
 
 - Vite on :5173 proxies `/api` to :3001. For UI work against a live API, run **`npm run server:dev`** (and **`npm run build`** once if you need the SPA served from the Node app instead of Vite).
