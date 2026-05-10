@@ -191,7 +191,7 @@ export default function App() {
       />
 
       <main
-        className={`ml-0 flex min-h-screen min-w-0 flex-1 flex-col p-6 transition-[margin] duration-150 ${sidebarOpen ? 'md:ml-60' : 'md:ml-0'}`}
+        className={`ml-0 flex min-h-screen min-w-0 flex-1 flex-col py-6 pr-6 transition-[margin] duration-150 ${sidebarOpen ? 'pl-6 md:ml-60' : 'pl-16 md:ml-0'}`}
       >
         <Routes>
           <Route path="/" element={<Navigate to="/scrapers" replace />} />
