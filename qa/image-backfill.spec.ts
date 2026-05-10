@@ -18,7 +18,7 @@ test.describe('BIZ-58 image backfill', () => {
     expect(seed.status()).toBe(201)
     const { id } = (await seed.json()) as { id: number }
 
-    const backfill = await request.post('/api/listings/backfill-images')
+    const backfill = await request.post(`/api/listings/backfill-images?listing_id=${id}`)
     expect(backfill.status()).toBe(200)
     const body = (await backfill.json()) as { ok?: unknown; queued?: unknown }
     expect(body.ok).toBe(true)

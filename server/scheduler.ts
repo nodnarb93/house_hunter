@@ -64,11 +64,11 @@ export async function runScraperSource(
     const entries = await fetchAndParse(row.url)
     const finishedAt = new Date().toISOString()
     const listingInsert = db.prepare(
-      'INSERT OR IGNORE INTO listings (preset_id, run_id, title, link, price_cents, address, beds, baths, scraped_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
+      'INSERT OR IGNORE INTO listings (preset_id, run_id, title, link, price_cents, address, beds, baths, mls_number, scraped_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
     )
     for (const e of entries) {
       const priceCents = extractFirstPriceCents(e)
-      const ins = await listingInsert.bind(null, null, e.title, e.link, priceCents, null, null, null, finishedAt).run()
+      const ins = await listingInsert.bind(null, null, e.title, e.link, priceCents, null, null, null, null, finishedAt).run()
       if (ins.meta.changes > 0) {
         const newId = ins.meta.last_row_id
         const source = findSourceForUrl(e.link)
@@ -105,7 +105,7 @@ export async function runScraperSource(
     const listings = await fetchRedfinGisCsvListings(params)
     const finishedAt = new Date().toISOString()
     const listingInsert = db.prepare(
-      'INSERT OR IGNORE INTO listings (preset_id, run_id, title, link, price_cents, address, beds, baths, scraped_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
+      'INSERT OR IGNORE INTO listings (preset_id, run_id, title, link, price_cents, address, beds, baths, mls_number, scraped_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
     )
     for (const listing of listings) {
       const ins = await listingInsert
@@ -118,6 +118,7 @@ export async function runScraperSource(
           listing.address,
           listing.beds,
           listing.baths,
+          listing.mls_number,
           finishedAt
         )
         .run()
@@ -125,7 +126,7 @@ export async function runScraperSource(
         const newId = ins.meta.last_row_id
         const source = findSourceForUrl(listing.link)
         if (source) {
-          const urls = await source.extractPhotoUrls(listing.link)
+          const urls = await source.extractPhotoUrls(listing.link, { mlsNumber: listing.mls_number })
           await replaceListingImageUrls(db, newId, urls)
           await new Promise((r) => setTimeout(r, 200))
         }

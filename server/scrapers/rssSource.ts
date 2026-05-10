@@ -1,4 +1,4 @@
-import type { ListingSource, RawListing } from './listingSource'
+import type { ListingSource, PhotoUrlHints, RawListing } from './listingSource'
 
 function extractOgImageUrl(html: string): string | null {
   const ogMatch =
@@ -32,7 +32,7 @@ export class RssSource implements ListingSource {
     return []
   }
 
-  async extractPhotoUrls(listingUrl: string): Promise<string[]> {
+  async extractPhotoUrls(listingUrl: string, _hints?: PhotoUrlHints): Promise<string[]> {
     try {
       const res = await fetch(listingUrl, {
         headers: {

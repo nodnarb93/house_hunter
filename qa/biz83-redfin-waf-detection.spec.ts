@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { test, expect } from '@playwright/test'
+import { fetchRedfinCdnPhotoUrls } from '../server/scrapers/redfinCdnPhotoFetcher'
 import { RedfinSource } from '../server/scrapers/redfinSource'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -11,10 +12,8 @@ const WAF_BODY_HTML = readFileSync(
   'utf8',
 )
 
-const LEGIT_HTML = readFileSync(path.join(__dirname, 'fixtures', 'redfin-listing.html'), 'utf8')
-
-test.describe('BIZ-83 Redfin WAF detection in extractPhotoUrls', () => {
-  test('WAF body via injected fetch fires logger', async () => {
+test.describe('BIZ-83 WAF regression guard (CDN path)', () => {
+  test('WAF HTML body on CDN probe fires CDN logger', async () => {
     const errors: string[] = []
     const orig = console.error
     console.error = (...args: unknown[]) => {
@@ -26,17 +25,15 @@ test.describe('BIZ-83 Redfin WAF detection in extractPhotoUrls', () => {
           status: 200,
           headers: { 'content-type': 'text/html' },
         })) as typeof fetch
-      const urls = await new RedfinSource(fakeFetch).extractPhotoUrls(
-        'https://www.redfin.com/example/home/79498429',
-      )
+      const urls = await fetchRedfinCdnPhotoUrls('226015925', { fetchImpl: fakeFetch, delayMs: 0 })
       expect(urls).toEqual([])
-      expect(errors.some((e) => /\[redfin\] WAF challenge response.*79498429/.test(e))).toBe(true)
+      expect(errors.some((e) => /\[redfin\]\[cdn\] WAF challenge unexpectedly returned/.test(e))).toBe(true)
     } finally {
       console.error = orig
     }
   })
 
-  test('Status 202 + WAF header fires logger', async () => {
+  test('Status 202 + WAF header on CDN fires logger', async () => {
     const errors: string[] = []
     const orig = console.error
     console.error = (...args: unknown[]) => {
@@ -48,31 +45,34 @@ test.describe('BIZ-83 Redfin WAF detection in extractPhotoUrls', () => {
           status: 202,
           headers: { 'x-amzn-waf-action': 'challenge', 'content-type': 'text/html' },
         })) as typeof fetch
-      const url = 'https://www.redfin.com/example/home/999'
-      const urls = await new RedfinSource(fakeFetch).extractPhotoUrls(url)
+      const urls = await fetchRedfinCdnPhotoUrls('226015925', { fetchImpl: fakeFetch, delayMs: 0 })
       expect(urls).toEqual([])
-      expect(errors.some((e) => /\[redfin\] WAF challenge response/.test(e))).toBe(true)
+      expect(errors.some((e) => /\[redfin\]\[cdn\] WAF challenge unexpectedly returned/.test(e))).toBe(true)
     } finally {
       console.error = orig
     }
   })
 
-  test('Legit listing body does NOT fire logger', async () => {
+  test('Successful CDN HEAD does not fire WAF logger', async () => {
     const errors: string[] = []
     const orig = console.error
     console.error = (...args: unknown[]) => {
       errors.push(args.map(String).join(' '))
     }
     try {
-      const fakeFetch = (async () =>
-        new Response(LEGIT_HTML, {
-          status: 200,
-          headers: { 'content-type': 'text/html' },
-        })) as typeof fetch
-      const urls = await new RedfinSource(fakeFetch).extractPhotoUrls('https://www.redfin.com/example/home/123')
-      expect(urls.length).toBeGreaterThanOrEqual(1)
-      for (const u of urls) expect(u.startsWith('https://ssl.cdn-redfin.com/')).toBe(true)
-      expect(errors.some((e) => /\[redfin\] WAF/.test(e))).toBe(false)
+      const expected = 'https://ssl.cdn-redfin.com/photo/160/bigphoto/925/226015925_0.jpg'
+      const fakeFetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+        const u = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
+        if (u === expected && init?.method === 'HEAD') {
+          return new Response(null, { status: 200, headers: { 'content-type': 'image/jpeg' } })
+        }
+        return new Response(null, { status: 404 })
+      }) as typeof fetch
+      const urls = await new RedfinSource(fakeFetch).extractPhotoUrls('https://www.redfin.com/example/home/123', {
+        mlsNumber: '226015925',
+      })
+      expect(urls).toEqual([expected])
+      expect(errors.some((e) => /\[redfin\]\[cdn\] WAF/.test(e))).toBe(false)
     } finally {
       console.error = orig
     }

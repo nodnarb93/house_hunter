@@ -148,6 +148,7 @@ export interface RedfinParsedListing {
   price_cents: number | null
   beds: number | null
   baths: number | null
+  mls_number: string | null
 }
 
 function parseCsvLine(line: string): string[] {
@@ -228,6 +229,7 @@ export function parseRedfinCsvListings(csvText: string): RedfinParsedListing[] {
   const idxBaths = colIndex(headerCells, 'BATHS')
   const idxPropType = colIndex(headerCells, 'PROPERTY TYPE')
   const idxUrl = findUrlColumnIndex(headerCells)
+  const idxMls = colIndex(headerCells, 'MLS#')
 
   if (
     idxAddress < 0 ||
@@ -262,6 +264,12 @@ export function parseRedfinCsvListings(csvText: string): RedfinParsedListing[] {
     const priceRaw = get(idxPrice)
     const propType = get(idxPropType)
 
+    let mls_number: string | null = null
+    if (idxMls >= 0) {
+      const mlsRaw = get(idxMls).trim()
+      mls_number = /^\d+$/.test(mlsRaw) ? mlsRaw : null
+    }
+
     const bedsParsed = parseInt(bedsRaw, 10)
     const beds = Number.isNaN(bedsParsed) ? null : bedsParsed
     const bathsParsed = parseFloat(bathsRaw)
@@ -278,6 +286,7 @@ export function parseRedfinCsvListings(csvText: string): RedfinParsedListing[] {
       price_cents: parsePriceCents(priceRaw),
       beds,
       baths,
+      mls_number,
     })
   }
   return out

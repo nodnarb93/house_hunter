@@ -3,10 +3,13 @@ import { test, expect } from '@playwright/test'
 /**
  * AC #7: below-the-fold cards should not pull every seeded CDN URL on first paint.
  * Threshold: total requests to ssl.cdn-redfin.com must stay below total seeded URLs (6 listings × 10).
- * After scrolling a previously off-screen card into view, at least one additional CDN request should occur.
+ * ListingGallery mounts at most three slides (current ± 1); first paint uses two per card, so scroll alone
+ * may not add requests. After scrolling the last card into view, advancing its carousel loads a third image.
  */
 test.describe('BIZ-69 below-fold lazy CDN (AC #7)', () => {
-  test('initial load does not request all seeded Redfin CDN URLs; scroll triggers more', async ({
+  test.setTimeout(90_000)
+
+  test('initial load does not request all seeded Redfin CDN URLs; carousel advances load more', async ({
     page,
     request,
   }) => {
@@ -64,11 +67,16 @@ test.describe('BIZ-69 below-fold lazy CDN (AC #7)', () => {
     expect(lazyAttrs.length).toBeGreaterThan(0)
     expect(lazyAttrs.every((v) => v === 'lazy')).toBe(true)
 
-    const countBeforeScroll = cdnRequests
-    await page.locator('[data-testid="hunt-result-card"]').last().scrollIntoViewIfNeeded()
+    const countBeforeAdvance = cdnRequests
+    const firstCard = page.locator('[data-testid="hunt-result-card"]').first()
+    await firstCard.scrollIntoViewIfNeeded()
+    await expect(firstCard.locator('[data-testid="listing-gallery-main-img"]')).toBeVisible({ timeout: 20_000 })
+    const nextBtn = firstCard.locator('[data-testid="listing-gallery-next"]')
+    await expect(nextBtn).toBeVisible({ timeout: 20_000 })
+    await nextBtn.click()
     await expect
       .poll(async () => cdnRequests, { timeout: 30_000 })
-      .toBeGreaterThan(countBeforeScroll)
+      .toBeGreaterThan(countBeforeAdvance)
 
     for (const id of listingIds) {
       await request.delete(`/api/test/listings/${id}`)
