@@ -9,6 +9,7 @@ test.describe('BIZ-69 child 3: pipeline writes image URLs', () => {
       data: {
         title: 'BIZ-74 URL pipeline seed',
         link: `https://www.redfin.com/OH/Columbus/999-test/home/79708871?biz74=${uniq}`,
+        mls_number: '226013015',
         price_cents: 400_000_00,
         address: '1 Pipeline Rd',
         beds: 2,
@@ -18,7 +19,7 @@ test.describe('BIZ-69 child 3: pipeline writes image URLs', () => {
     expect(seed.status()).toBe(201)
     const { id } = (await seed.json()) as { id: number }
 
-    const backfill = await request.post('/api/listings/backfill-images')
+    const backfill = await request.post(`/api/listings/backfill-images?listing_id=${id}`)
     expect(backfill.status()).toBe(200)
 
     const imagesRes = await request.get(`/api/listings/${id}/images`)
