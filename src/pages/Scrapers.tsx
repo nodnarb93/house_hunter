@@ -515,6 +515,7 @@ export default function Scrapers() {
       setNewUrl('')
       setSuccess('Feed added.')
       setSources(await getScrapers())
+      setActiveScrapersOpen(true)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to add')
     }
@@ -900,6 +901,7 @@ export default function Scrapers() {
                   await addScraperRedfin(params)
                   setSuccess('Redfin source added.')
                   setSources(await getScrapers())
+                  setActiveScrapersOpen(true)
                   setRedfinLocationUrl('')
                   setResolvedLocationLabel(null)
                   setRedfinCreateInitial({ ...defaultRedfinParams })
