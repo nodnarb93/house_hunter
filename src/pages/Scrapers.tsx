@@ -4,21 +4,26 @@ import {
   getScrapers,
   addScraper,
   addScraperRedfin,
+  getScraperSource,
+  patchScraperSource,
+  redfinStructuredToParams,
   removeScraper,
   testScraperById,
   resolveRedfinUrl,
   updateScraperScheduleSlots,
 } from '../api'
-
-const REGION_TYPE_OPTIONS = [
-  { value: 6, label: 'City' },
-  { value: 2, label: 'Zip code' },
-] as const
+import { RedfinScraperForm } from '../components/RedfinScraperForm'
+import { REGION_TYPE_OPTIONS } from '../redfinConstants'
+import { parseRedfinUrl } from '../redfinUrlParse'
 
 const defaultRedfinParams: RedfinParams = {
   region_id: 0,
   region_type: 6,
   market: '',
+  num_homes: 350,
+  page_number: 1,
+  status: 9,
+  v: 8,
 }
 
 type SelectedSourceType = 'rss' | 'redfin' | null
@@ -430,10 +435,16 @@ export default function Scrapers() {
   const [sources, setSources] = useState<ScraperSource[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedSourceType, setSelectedSourceType] = useState<SelectedSourceType>(null)
-  const [redfinParams, setRedfinParams] = useState<RedfinParams>({ ...defaultRedfinParams })
+  const [redfinCreateInitial, setRedfinCreateInitial] = useState<RedfinParams>({ ...defaultRedfinParams })
+  const [redfinFormKey, setRedfinFormKey] = useState(0)
+  const [redfinCreateBusy, setRedfinCreateBusy] = useState(false)
   const [redfinLocationUrl, setRedfinLocationUrl] = useState('')
   const [resolvingLocation, setResolvingLocation] = useState(false)
   const [resolvedLocationLabel, setResolvedLocationLabel] = useState<string | null>(null)
+  const [paramsEditorId, setParamsEditorId] = useState<number | null>(null)
+  const [paramsEditorInitial, setParamsEditorInitial] = useState<RedfinParams | null>(null)
+  const [paramsEditorLoading, setParamsEditorLoading] = useState(false)
+  const [paramsEditorBusy, setParamsEditorBusy] = useState(false)
   const [newUrl, setNewUrl] = useState('')
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
@@ -463,12 +474,18 @@ export default function Scrapers() {
     setResolvingLocation(true)
     try {
       const resolved = await resolveRedfinUrl(url)
-      setRedfinParams((p) => ({
-        ...p,
-        region_id: resolved.region_id,
-        region_type: resolved.region_type,
-        market: resolved.market,
-      }))
+      const fromUrl = parseRedfinUrl(url)
+      if (fromUrl) {
+        setRedfinCreateInitial(fromUrl)
+      } else {
+        setRedfinCreateInitial({
+          ...defaultRedfinParams,
+          region_id: resolved.region_id,
+          region_type: resolved.region_type,
+          market: resolved.market,
+        })
+      }
+      setRedfinFormKey((k) => k + 1)
       const typeLabel = REGION_TYPE_OPTIONS.find((o) => o.value === resolved.region_type)?.label ?? 'location'
       setResolvedLocationLabel(`${resolved.market} (${typeLabel.toLowerCase()})`)
     } catch (e) {
@@ -484,31 +501,6 @@ export default function Scrapers() {
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false))
   }, [])
-
-  const addRedfin = async () => {
-    setError('')
-    setSuccess('')
-    const market = redfinParams.market?.trim()
-    if (!market) {
-      setError('Resolve a Redfin location URL first, or enter a market name.')
-      return
-    }
-    if (!redfinParams.region_id || Number.isNaN(Number(redfinParams.region_id))) {
-      setError('Resolve a Redfin location URL to set region (region ID is resolved from the URL).')
-      return
-    }
-    try {
-      await addScraperRedfin({
-        region_id: redfinParams.region_id,
-        region_type: redfinParams.region_type,
-        market: market.toLowerCase().replace(/\s+/g, '-'),
-      })
-      setSuccess('Redfin source added.')
-      setSources(await getScrapers())
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to add')
-    }
-  }
 
   const addRss = async () => {
     setError('')
@@ -628,6 +620,40 @@ export default function Scrapers() {
                         </div>
                         <span className="ml-auto shrink-0 text-xs text-zinc-500">{lastTestedDisplay(s)}</span>
                         <div className="flex shrink-0 flex-wrap items-center gap-2">
+                          {s.kind === 'redfin' && (
+                            <button
+                              type="button"
+                              className={btnCompact}
+                              data-testid={`scraper-edit-params-${s.id}`}
+                              onClick={async () => {
+                                if (paramsEditorId === s.id) {
+                                  setParamsEditorId(null)
+                                  setParamsEditorInitial(null)
+                                  return
+                                }
+                                setError('')
+                                setParamsEditorId(s.id)
+                                setParamsEditorInitial(null)
+                                setParamsEditorLoading(true)
+                                try {
+                                  const row = await getScraperSource(s.id)
+                                  if (row.kind !== 'redfin' || !row.params) {
+                                    setError('Could not load Redfin parameters for this source.')
+                                    setParamsEditorId(null)
+                                    return
+                                  }
+                                  setParamsEditorInitial(redfinStructuredToParams(row.params))
+                                } catch (e) {
+                                  setError(e instanceof Error ? e.message : 'Failed to load scraper')
+                                  setParamsEditorId(null)
+                                } finally {
+                                  setParamsEditorLoading(false)
+                                }
+                              }}
+                            >
+                              {paramsEditorId === s.id ? 'Close params' : 'Edit params'}
+                            </button>
+                          )}
                           <button
                             type="button"
                             className={btnCompact}
@@ -755,6 +781,38 @@ export default function Scrapers() {
                           </div>
                         </div>
                       )}
+                      {s.kind === 'redfin' && paramsEditorId === s.id && (
+                        <div className="mt-4 border-t border-white/5 pt-4 pl-8">
+                          {paramsEditorLoading && <p className="text-sm text-zinc-400">Loading parameters…</p>}
+                          {!paramsEditorLoading && paramsEditorInitial && (
+                            <RedfinScraperForm
+                              key={`edit-${s.id}-${paramsEditorInitial.region_id}-${paramsEditorInitial.market}`}
+                              mode="edit"
+                              initial={paramsEditorInitial}
+                              busy={paramsEditorBusy}
+                              onCancel={() => {
+                                setParamsEditorId(null)
+                                setParamsEditorInitial(null)
+                              }}
+                              onSubmit={async (p) => {
+                                setError('')
+                                setParamsEditorBusy(true)
+                                try {
+                                  await patchScraperSource(s.id, p)
+                                  setSuccess('Redfin parameters updated.')
+                                  setSources(await getScrapers())
+                                  setParamsEditorId(null)
+                                  setParamsEditorInitial(null)
+                                } catch (e) {
+                                  throw e instanceof Error ? e : new Error('Failed to save')
+                                } finally {
+                                  setParamsEditorBusy(false)
+                                }
+                              }}
+                            />
+                          )}
+                        </div>
+                      )}
                     </li>
                   )
                 })}
@@ -821,62 +879,38 @@ export default function Scrapers() {
         )}
 
         {selectedSourceType === 'redfin' && (
-          <div className="mt-4 max-w-xl space-y-4">
-            <div>
-              <label className="mb-1 block text-sm font-medium text-zinc-300">Location (region is resolved from URL)</label>
-              <p className="mb-2 text-sm text-zinc-500">
-                Open Redfin, search for a city or zip, then paste the URL here. We’ll resolve region ID, type, and market for you.
-              </p>
-              <div className="flex flex-wrap items-start gap-2">
-                <input
-                  type="url"
-                  value={redfinLocationUrl}
-                  onChange={(e) => setRedfinLocationUrl(e.target.value)}
-                  placeholder="https://www.redfin.com/city/4664/OH/Columbus"
-                  className={`${inputBase} min-w-[280px] flex-1`}
-                />
-                <button type="button" className={btnCompact} onClick={resolveLocation} disabled={resolvingLocation}>
-                  {resolvingLocation ? 'Resolving…' : 'Resolve'}
-                </button>
-              </div>
-              {resolvedLocationLabel && (
-                <p className="mt-2 text-sm text-green-400">
-                  Resolved: <strong className="font-medium text-green-300">{resolvedLocationLabel}</strong> — region ID is set
-                  automatically.
-                </p>
-              )}
-            </div>
-
-            <div>
-              <label className="mb-1 block text-sm text-zinc-400">Region type</label>
-              <select
-                value={redfinParams.region_type ?? 6}
-                onChange={(e) => setRedfinParams((p) => ({ ...p, region_type: Number(e.target.value) }))}
-                className={`${inputBase} max-w-[200px] cursor-pointer`}
-              >
-                {REGION_TYPE_OPTIONS.map((o) => (
-                  <option key={o.value} value={o.value} className="bg-zinc-900">
-                    {o.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="mb-1 block text-sm text-zinc-400">Market (slug)</label>
-              <p className="mb-1 text-sm text-zinc-500">e.g. columbus, sfbay, dc — often filled from Resolve.</p>
-              <input
-                type="text"
-                value={redfinParams.market ?? ''}
-                onChange={(e) => setRedfinParams((p) => ({ ...p, market: e.target.value }))}
-                placeholder="columbus"
-                className={`${inputBase} max-w-[240px]`}
-              />
-            </div>
-
-            <button type="button" className={btnCompact} onClick={addRedfin}>
-              Add Redfin source
-            </button>
+          <div className="mt-4">
+            <RedfinScraperForm
+              key={`create-${redfinFormKey}`}
+              mode="create"
+              initial={redfinCreateInitial}
+              busy={redfinCreateBusy}
+              location={{
+                url: redfinLocationUrl,
+                onUrlChange: setRedfinLocationUrl,
+                onResolve: () => void resolveLocation(),
+                resolving: resolvingLocation,
+                resolvedLabel: resolvedLocationLabel,
+              }}
+              onSubmit={async (params) => {
+                setError('')
+                setSuccess('')
+                setRedfinCreateBusy(true)
+                try {
+                  await addScraperRedfin(params)
+                  setSuccess('Redfin source added.')
+                  setSources(await getScrapers())
+                  setRedfinLocationUrl('')
+                  setResolvedLocationLabel(null)
+                  setRedfinCreateInitial({ ...defaultRedfinParams })
+                  setRedfinFormKey((k) => k + 1)
+                } catch (e) {
+                  throw e instanceof Error ? e : new Error('Failed to add')
+                } finally {
+                  setRedfinCreateBusy(false)
+                }
+              }}
+            />
           </div>
         )}
       </section>

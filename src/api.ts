@@ -167,6 +167,57 @@ export interface RedfinParams {
   v?: number
 }
 
+/** Structured Redfin params returned by `GET /api/scraper-sources/:id` (redfin rows). */
+export interface RedfinStructuredParams {
+  region_id: number
+  region_type: number
+  market: string
+  min_price: number | null
+  max_price: number | null
+  min_beds: number | null
+  max_beds: number | null
+  min_baths: number | null
+  max_baths: number | null
+  uipt: string | null
+  num_homes: number
+  page_number: number
+  status: number
+  v: number
+}
+
+export type ScraperSourceDetail = ScraperSource & { params?: RedfinStructuredParams | null }
+
+export function redfinStructuredToParams(p: RedfinStructuredParams): RedfinParams {
+  const out: RedfinParams = {
+    region_id: p.region_id,
+    region_type: p.region_type,
+    market: p.market,
+    num_homes: p.num_homes,
+    page_number: p.page_number,
+    status: p.status,
+    v: p.v,
+  }
+  if (p.min_price != null) out.min_price = p.min_price
+  if (p.max_price != null) out.max_price = p.max_price
+  if (p.min_beds != null) out.min_beds = p.min_beds
+  if (p.max_beds != null) out.max_beds = p.max_beds
+  if (p.min_baths != null) out.min_baths = p.min_baths
+  if (p.max_baths != null) out.max_baths = p.max_baths
+  if (p.uipt != null && p.uipt !== '') out.uipt = p.uipt
+  return out
+}
+
+async function readApiErrorMessage(r: Response): Promise<string> {
+  const t = await r.text()
+  try {
+    const j = JSON.parse(t) as { error?: string }
+    if (typeof j.error === 'string' && j.error.trim() !== '') return j.error
+  } catch {
+    /* ignore */
+  }
+  return t.trim() !== '' ? t : `HTTP ${r.status}`
+}
+
 export async function getScrapers(): Promise<ScraperSource[]> {
   const r = await fetch(`${API}/scraper-sources`)
   if (!r.ok) throw new Error(await r.text())
@@ -190,8 +241,24 @@ export async function addScraperRedfin(params: RedfinParams): Promise<ScraperSou
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ kind: 'redfin', ...params }),
   })
-  if (!r.ok) throw new Error(await r.text())
+  if (!r.ok) throw new Error(await readApiErrorMessage(r))
   return coerceScraperSource((await r.json()) as ScraperSource)
+}
+
+export async function getScraperSource(id: number): Promise<ScraperSourceDetail> {
+  const r = await fetch(`${API}/scraper-sources/${id}`)
+  if (!r.ok) throw new Error(await readApiErrorMessage(r))
+  return (await r.json()) as ScraperSourceDetail
+}
+
+export async function patchScraperSource(id: number, body: RedfinParams): Promise<ScraperSourceDetail> {
+  const r = await fetch(`${API}/scraper-sources/${id}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+  if (!r.ok) throw new Error(await readApiErrorMessage(r))
+  return (await r.json()) as ScraperSourceDetail
 }
 
 export async function removeScraper(id: number): Promise<void> {
