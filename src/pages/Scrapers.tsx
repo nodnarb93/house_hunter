@@ -343,7 +343,11 @@ function ScheduleOverview({ sources }: { sources: ScraperSource[] }) {
     .sort((a, b) => a.id - b.id)
 
   return (
-    <section className="mt-8 max-w-full" data-testid="schedule-overview" aria-labelledby="schedule-overview-heading">
+    <section
+      className="mt-8 max-w-full border-b border-white/10 pb-6 mb-6"
+      data-testid="schedule-overview"
+      aria-labelledby="schedule-overview-heading"
+    >
       <div className="flex items-start justify-between">
         <div>
           <h2 id="schedule-overview-heading" className="text-sm font-semibold text-zinc-300">
@@ -565,14 +569,16 @@ export default function Scrapers() {
 
   return (
     <>
-      <h1 className="text-xl font-semibold text-white">Scrapers</h1>
-      <p className="mt-1 max-w-2xl text-sm text-zinc-400">
-        Data sources used by the pipeline. Test sparingly—hitting a feed too often can get you blocked.
-      </p>
+      <div className="border-b border-white/10 pb-6 mb-6">
+        <h1 className="text-xl font-semibold text-white">Scrapers</h1>
+        <p className="mt-1 max-w-2xl text-sm text-zinc-400">
+          Data sources used by the pipeline. Test sparingly—hitting a feed too often can get you blocked.
+        </p>
+      </div>
 
       <ScheduleOverview sources={sources} />
 
-      <section className="mt-8" aria-labelledby="scrapers-active-heading">
+      <section className="mt-8 border-b border-white/10 pb-6 mb-6" aria-labelledby="scrapers-active-heading">
         <div className="flex items-center gap-1">
           <h2
             id="scrapers-active-heading"
@@ -666,7 +672,7 @@ export default function Scrapers() {
                           <button
                             type="button"
                             className={btnCompact}
-                            data-testid={`scraper-edit-${s.id}`}
+                            data-testid={`scraper-reschedule-${s.id}`}
                             onClick={() => {
                               if (editingId === s.id) {
                                 setEditingId(null)
@@ -676,7 +682,7 @@ export default function Scrapers() {
                               }
                             }}
                           >
-                            {editing ? 'Close' : 'Edit'}
+                            {editing ? 'Close' : 'Reschedule'}
                           </button>
                           <button
                             type="button"
@@ -832,7 +838,7 @@ export default function Scrapers() {
       </section>
 
       {(testingId !== null || testOutput !== null) && (
-        <section className="mt-8" aria-label="Test output">
+        <section className="mt-8 border-b border-white/10 pb-6 mb-6" aria-label="Test output">
           <h2 className="text-sm font-semibold text-zinc-300">Test Output</h2>
           <div className="mt-2 min-h-[2.5rem] rounded-md border border-white/10 bg-zinc-900 px-4 py-3 font-mono text-sm">
             {testingId !== null && <span className="text-sky-400">Running test…</span>}

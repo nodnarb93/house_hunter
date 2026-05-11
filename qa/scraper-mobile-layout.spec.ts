@@ -43,7 +43,7 @@ test.describe('BIZ-115 Active Scrapers mobile row layout', () => {
       expect(neverBox).not.toBeNull()
       expect(neverBox!.y).toBeGreaterThanOrEqual(nameBox!.y + nameBox!.height - 2)
 
-      const editBtn = page.getByTestId(`scraper-edit-${id}`)
+      const editBtn = page.getByTestId(`scraper-reschedule-${id}`)
       await expect(editBtn).toBeVisible()
       const editBox = await editBtn.boundingBox()
       expect(editBox).not.toBeNull()

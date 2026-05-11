@@ -27,7 +27,7 @@ test('scrapers page: schedule overview before active list; active scrapers colla
     await expect(toggle).toHaveAttribute('aria-expanded', 'true')
 
     await expect(page.locator('#scrapers-active-list')).toBeVisible()
-    await expect(page.getByTestId(`scraper-edit-${scraper.id}`)).toBeVisible()
+    await expect(page.getByTestId(`scraper-reschedule-${scraper.id}`)).toBeVisible()
 
     await toggle.click()
     await expect(toggle).toHaveAttribute('aria-expanded', 'false')

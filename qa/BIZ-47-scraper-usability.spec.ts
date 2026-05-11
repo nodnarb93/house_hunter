@@ -16,7 +16,7 @@ test('scrapers: active toggle shows caret only; heading and caret toggle list', 
 
     await page.locator('#scrapers-active-heading').click()
     await expect(page.locator('#scrapers-active-list')).toBeVisible()
-    await expect(page.getByTestId(`scraper-edit-${scraper.id}`)).toBeVisible()
+    await expect(page.getByTestId(`scraper-reschedule-${scraper.id}`)).toBeVisible()
 
     await toggle.click()
     await expect(page.locator('#scrapers-active-list')).toHaveCount(0)
@@ -84,12 +84,12 @@ test('scrapers: different source groups can share a slot; overview cell splits',
     await page.goto('/scrapers')
     await page.getByTestId('scrapers-active-toggle').click()
 
-    await page.getByTestId(`scraper-edit-${redfinRow.id}`).click()
+    await page.getByTestId(`scraper-reschedule-${redfinRow.id}`).click()
     await page.getByTestId('slot-option-08:00').click()
     await page.getByRole('button', { name: 'Save schedule' }).click()
     await expect(page.getByText('Schedule updated.')).toBeVisible()
 
-    await page.getByTestId(`scraper-edit-${rssRow.id}`).click()
+    await page.getByTestId(`scraper-reschedule-${rssRow.id}`).click()
     const rss0800 = page.getByTestId('slot-option-08:00')
     await expect(rss0800).toBeEnabled()
     await rss0800.click()
