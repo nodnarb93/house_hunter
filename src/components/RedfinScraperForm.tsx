@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import type { RedfinParams } from '../api'
 import { REDFIN_PROPERTY_TYPES, REDFIN_STATUS_OPTIONS, REGION_TYPE_OPTIONS } from '../redfinConstants'
+import { RedfinParamsInfoButton } from './RedfinParamsInfoButton'
 
 const btnCompact = 'rounded-md bg-zinc-800 px-2.5 py-1.5 text-xs text-white hover:bg-zinc-700 disabled:cursor-not-allowed disabled:opacity-50'
 const inputBase =
@@ -177,7 +178,10 @@ export function RedfinScraperForm({ mode, initial, busy, onSubmit, onCancel, loc
     <div className="max-w-xl space-y-4" data-testid="redfin-form">
       {mode === 'create' && location && (
         <div>
-          <label className="mb-1 block text-sm font-medium text-zinc-300">Location (region is resolved from URL)</label>
+          <div className="mb-1 flex items-center justify-between gap-2">
+            <label className="block text-sm font-medium text-zinc-300">Location (region is resolved from URL)</label>
+            <RedfinParamsInfoButton variant="create" />
+          </div>
           <p className="mb-2 text-sm text-zinc-500">
             Open Redfin, search for a city or zip, then paste the URL here. We’ll resolve region ID, type, and market for you.
           </p>
@@ -210,17 +214,23 @@ export function RedfinScraperForm({ mode, initial, busy, onSubmit, onCancel, loc
       )}
 
       {readOnlyRegion && (
-        <div className="rounded-md border border-white/10 bg-zinc-950/50 px-3 py-2 text-sm text-zinc-300">
-          <div>
-            <span className="text-zinc-500">Market: </span>
-            <span data-testid="redfin-readonly-market">{initial.market}</span>
+        <div
+          data-testid="redfin-readonly-location-box"
+          className="flex w-fit max-w-md items-start gap-3 rounded-md border border-white/10 bg-zinc-950/50 px-3 py-2 text-sm text-zinc-300"
+        >
+          <div className="min-w-0 flex-1 break-words">
+            <div>
+              <span className="text-zinc-500">Market: </span>
+              <span data-testid="redfin-readonly-market">{initial.market}</span>
+            </div>
+            <div className="mt-1">
+              <span className="text-zinc-500">Region: </span>
+              <span data-testid="redfin-readonly-region">
+                id {initial.region_id}, type {initial.region_type}
+              </span>
+            </div>
           </div>
-          <div className="mt-1">
-            <span className="text-zinc-500">Region: </span>
-            <span data-testid="redfin-readonly-region">
-              id {initial.region_id}, type {initial.region_type}
-            </span>
-          </div>
+          <RedfinParamsInfoButton variant="edit" />
         </div>
       )}
 
