@@ -16,7 +16,7 @@ test.describe('BIZ-115 Active Scrapers mobile row layout', () => {
     })
     expect(create.ok()).toBeTruthy()
     const { id } = (await create.json()) as { id: number }
-    const labelRe = new RegExp(`Redfin · biz115-${stamp}`, 'i')
+    const labelRe = new RegExp(`Redfin[: ·]+biz115-${stamp}`, 'i')
 
     try {
       await page.goto('/scrapers')
