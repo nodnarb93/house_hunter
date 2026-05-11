@@ -16,24 +16,27 @@ test.describe('BIZ-115 Active Scrapers mobile row layout', () => {
     })
     expect(create.ok()).toBeTruthy()
     const { id } = (await create.json()) as { id: number }
-    const labelRe = new RegExp(`Redfin[: ·]+biz115-${stamp}`, 'i')
 
     try {
+      await page.setViewportSize({ width: 360, height: 800 })
       await page.goto('/scrapers')
       await page.getByTestId('scrapers-active-toggle').click()
       await expect(page.locator('#scrapers-active-list')).toBeVisible()
 
-      const list = page.locator('#scrapers-active-list')
-      const nameEl = list.getByText(labelRe).first()
+      const row = page.getByTestId(`scraper-active-row-${id}`)
+      const listItem = row.locator('xpath=ancestor::li[1]')
+      const nameEl = row.getByTestId(`scraper-row-name-${id}`)
       await expect(nameEl).toBeVisible()
 
-      await page.setViewportSize({ width: 360, height: 800 })
+      await expect
+        .poll(async () => row.evaluate((el) => getComputedStyle(el).flexDirection))
+        .toBe('column')
+
       const nameBox = await nameEl.boundingBox()
       expect(nameBox).not.toBeNull()
       expect(nameBox!.width).toBeGreaterThan(100)
       expect(nameBox!.height).toBeLessThan(80)
 
-      const row = nameEl.locator('xpath=ancestor::li[1]')
       const neverEl = row.getByText('Never tested').first()
       await expect(neverEl).toBeVisible()
       const neverBox = await neverEl.boundingBox()
@@ -47,6 +50,10 @@ test.describe('BIZ-115 Active Scrapers mobile row layout', () => {
       expect(editBox!.y).toBeGreaterThanOrEqual(nameBox!.y + nameBox!.height - 2)
 
       await page.setViewportSize({ width: 1024, height: 768 })
+      await expect
+        .poll(async () => row.evaluate((el) => getComputedStyle(el).flexDirection))
+        .toBe('row')
+
       const nameBoxWide = await nameEl.boundingBox()
       const editBoxWide = await editBtn.boundingBox()
       expect(nameBoxWide).not.toBeNull()
@@ -56,7 +63,7 @@ test.describe('BIZ-115 Active Scrapers mobile row layout', () => {
       expect(Math.abs(nameMidY - editMidY)).toBeLessThan(12)
 
       await editBtn.click()
-      await expect(row.getByTestId('scraper-slot-picker')).toBeVisible()
+      await expect(listItem.getByTestId('scraper-slot-picker')).toBeVisible()
     } finally {
       await request.delete(`/api/scrapers/${id}`).catch(() => {})
     }

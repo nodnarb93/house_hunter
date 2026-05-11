@@ -603,7 +603,10 @@ export default function Scrapers() {
                   const warnNear = editing && proximityWarning(s, draftSlots, sources)
                   return (
                     <li key={s.id} className="border-b border-white/10 py-3">
-                      <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center sm:gap-4">
+                      <div
+                        data-testid={`scraper-active-row-${s.id}`}
+                        className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center sm:gap-4"
+                      >
                         <div className="flex w-full min-w-0 items-start gap-3 sm:flex-1">
                           <span
                             className={statusDotClass(s, testingId)}
@@ -611,7 +614,12 @@ export default function Scrapers() {
                             aria-hidden
                           />
                           <div className="min-w-0 flex-1">
-                            <div className="break-words text-sm text-white">{rowLabel(s)}</div>
+                            <div
+                              className="break-words text-sm text-white"
+                              data-testid={`scraper-row-name-${s.id}`}
+                            >
+                              {rowLabel(s)}
+                            </div>
                             {!editing && (s.schedule_slots?.length ?? 0) > 0 && (
                               <p className="mt-1 text-xs text-zinc-500">
                                 Slots: {sortDraftSlots(s.schedule_slots).map(formatSlotAmPm).join(', ')}
