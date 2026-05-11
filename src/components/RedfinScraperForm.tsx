@@ -26,6 +26,17 @@ function numStr(v: number | undefined): string {
   return String(v)
 }
 
+type ValidationErrors = {
+  price?: string
+  beds?: string
+  baths?: string
+  form?: string
+}
+
+function hasClientValidationErrors(e: ValidationErrors): boolean {
+  return !!(e.price || e.beds || e.baths || e.form)
+}
+
 export type RedfinScraperFormProps = {
   mode: 'create' | 'edit'
   initial: RedfinParams
@@ -54,7 +65,10 @@ export function RedfinScraperForm({ mode, initial, busy, onSubmit, onCancel, loc
   const [uiptSel, setUiptSel] = useState(() => uiptToSelected(initial.uipt))
   const [regionType, setRegionType] = useState(() => String(initial.region_type ?? 6))
   const [market, setMarket] = useState(() => initial.market ?? '')
-  const [clientError, setClientError] = useState('')
+  const [priceError, setPriceError] = useState('')
+  const [bedsError, setBedsError] = useState('')
+  const [bathsError, setBathsError] = useState('')
+  const [formError, setFormError] = useState('')
   const [serverError, setServerError] = useState('')
 
   const readOnlyRegion = mode === 'edit'
@@ -80,25 +94,32 @@ export function RedfinScraperForm({ mode, initial, busy, onSubmit, onCancel, loc
     return { nh, pn, minP, maxP, minBd, maxBd, minBt, maxBt }
   }, [numHomes, pageNumber, minPrice, maxPrice, minBeds, maxBeds, minBaths, maxBaths])
 
-  const validateClient = (): string | null => {
+  const validateClient = (): ValidationErrors => {
+    const e: ValidationErrors = {}
     const { nh, pn, minP, maxP, minBd, maxBd, minBt, maxBt } = parsedNums
-    if (Number.isNaN(nh) || nh < 1 || nh > 350) return 'num_homes must be between 1 and 350'
-    if (Number.isNaN(pn) || pn < 1 || pn > 10) return 'page_number must be between 1 and 10'
+    if (Number.isNaN(nh) || nh < 1 || nh > 350) {
+      e.form = 'num_homes must be between 1 and 350'
+      return e
+    }
+    if (Number.isNaN(pn) || pn < 1 || pn > 10) {
+      e.form = 'page_number must be between 1 and 10'
+      return e
+    }
     if (minP !== undefined && maxP !== undefined && !Number.isNaN(minP) && !Number.isNaN(maxP) && minP > maxP) {
-      return 'min_price is greater than max_price'
+      e.price = 'min_price is greater than max_price'
     }
     if (minBd !== undefined && maxBd !== undefined && !Number.isNaN(minBd) && !Number.isNaN(maxBd) && minBd > maxBd) {
-      return 'min_beds is greater than max_beds'
+      e.beds = 'min_beds is greater than max_beds'
     }
     if (minBt !== undefined && maxBt !== undefined && !Number.isNaN(minBt) && !Number.isNaN(maxBt) && minBt > maxBt) {
-      return 'min_baths is greater than max_baths'
+      e.baths = 'min_baths is greater than max_baths'
     }
-    return null
+    return e
   }
 
   const buildParams = (): RedfinParams | null => {
     const vErr = validateClient()
-    if (vErr) return null
+    if (hasClientValidationErrors(vErr)) return null
     const { nh, pn, minP, maxP, minBd, maxBd, minBt, maxBt } = parsedNums
     const st = parseInt(status, 10)
     const rt = parseInt(regionType, 10)
@@ -124,21 +145,25 @@ export function RedfinScraperForm({ mode, initial, busy, onSubmit, onCancel, loc
   }
 
   const submit = async () => {
-    setClientError('')
+    setPriceError('')
+    setBedsError('')
+    setBathsError('')
+    setFormError('')
     setServerError('')
     const vErr = validateClient()
-    if (vErr) {
-      setClientError(vErr)
-      return
-    }
+    setPriceError(vErr.price ?? '')
+    setBedsError(vErr.beds ?? '')
+    setBathsError(vErr.baths ?? '')
+    setFormError(vErr.form ?? '')
+    if (hasClientValidationErrors(vErr)) return
     const params = buildParams()
     if (!params) return
     if (!params.market) {
-      setClientError('Resolve a Redfin location URL first, or enter a market name.')
+      setFormError('Resolve a Redfin location URL first, or enter a market name.')
       return
     }
     if (!params.region_id || Number.isNaN(Number(params.region_id))) {
-      setClientError('Resolve a Redfin location URL to set region (region ID is resolved from the URL).')
+      setFormError('Resolve a Redfin location URL to set region (region ID is resolved from the URL).')
       return
     }
     try {
@@ -322,6 +347,11 @@ export function RedfinScraperForm({ mode, initial, busy, onSubmit, onCancel, loc
           </div>
         </div>
       </fieldset>
+      {priceError && (
+        <p className="text-sm text-red-400" data-testid="redfin-price-error" role="alert">
+          {priceError}
+        </p>
+      )}
 
       <fieldset className="space-y-2">
         <legend className="text-sm text-zinc-400">Beds</legend>
@@ -358,6 +388,11 @@ export function RedfinScraperForm({ mode, initial, busy, onSubmit, onCancel, loc
           </div>
         </div>
       </fieldset>
+      {bedsError && (
+        <p className="text-sm text-red-400" data-testid="redfin-beds-error" role="alert">
+          {bedsError}
+        </p>
+      )}
 
       <fieldset className="space-y-2">
         <legend className="text-sm text-zinc-400">Baths</legend>
@@ -394,6 +429,11 @@ export function RedfinScraperForm({ mode, initial, busy, onSubmit, onCancel, loc
           </div>
         </div>
       </fieldset>
+      {bathsError && (
+        <p className="text-sm text-red-400" data-testid="redfin-baths-error" role="alert">
+          {bathsError}
+        </p>
+      )}
 
       <fieldset>
         <legend className="mb-2 text-sm text-zinc-400">Property type (uipt)</legend>
@@ -412,9 +452,9 @@ export function RedfinScraperForm({ mode, initial, busy, onSubmit, onCancel, loc
         </div>
       </fieldset>
 
-      {(clientError || serverError) && (
-        <p className="text-sm text-red-400" data-testid="redfin-field-error" role="alert">
-          {clientError || serverError}
+      {(formError || serverError) && (
+        <p className="text-sm text-red-400" data-testid="redfin-form-error" role="alert">
+          {formError || serverError}
         </p>
       )}
 

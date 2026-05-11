@@ -134,8 +134,8 @@ test.describe('BIZ-107 Redfin params form', () => {
       await page.getByTestId('redfin-min-price').fill('500000')
       await page.getByTestId('redfin-max-price').fill('100000')
       await page.getByTestId('redfin-form-submit').click()
-      await expect(page.getByTestId('redfin-field-error')).toBeVisible()
-      await expect(page.getByTestId('redfin-field-error')).toContainText(/min_price|max_price|greater/i)
+      await expect(page.getByTestId('redfin-price-error')).toBeVisible()
+      await expect(page.getByTestId('redfin-price-error')).toContainText(/min_price|max_price|greater/i)
       await page.waitForTimeout(600)
       expect(posts).toEqual([])
     } finally {
