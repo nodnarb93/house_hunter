@@ -134,12 +134,113 @@ test.describe('BIZ-107 Redfin params form', () => {
       await page.getByTestId('redfin-min-price').fill('500000')
       await page.getByTestId('redfin-max-price').fill('100000')
       await page.getByTestId('redfin-form-submit').click()
-      await expect(page.getByTestId('redfin-field-error')).toBeVisible()
-      await expect(page.getByTestId('redfin-field-error')).toContainText(/min_price|max_price|greater/i)
+      await expect(page.getByTestId('redfin-price-error')).toBeVisible()
+      await expect(page.getByTestId('redfin-price-error')).toContainText(/min_price|max_price|greater/i)
+      await expect(page.getByTestId('redfin-form-error')).toHaveCount(0)
+      await expect(page.getByTestId('redfin-beds-error')).toHaveCount(0)
+      await expect(page.getByTestId('redfin-baths-error')).toHaveCount(0)
       await page.waitForTimeout(600)
       expect(posts).toEqual([])
     } finally {
       page.off('request', onReq)
     }
+  })
+
+  test('invalid min beds>max beds blocked', async ({ page }) => {
+    await page.goto('/scrapers')
+    await pickRedfin(page)
+
+    const url = 'https://www.redfin.com/city/4664/OH/Columbus'
+    await page.getByTestId('redfin-location-url').fill(url)
+    await page.getByTestId('redfin-resolve-btn').click()
+    await expect(page.getByText(/Resolved:/)).toBeVisible({ timeout: 15_000 })
+
+    const posts: string[] = []
+    const onReq = (req: import('@playwright/test').Request) => {
+      if (
+        req.method() === 'POST' &&
+        req.url().includes('/api/scraper-sources') &&
+        !req.url().includes('resolve-redfin') &&
+        !req.url().includes('/test')
+      ) {
+        posts.push(req.url())
+      }
+    }
+    page.on('request', onReq)
+    try {
+      await page.getByTestId('redfin-min-beds').fill('4')
+      await page.getByTestId('redfin-max-beds').fill('2')
+      await page.getByTestId('redfin-form-submit').click()
+      await expect(page.getByTestId('redfin-beds-error')).toBeVisible()
+      await expect(page.getByTestId('redfin-beds-error')).toContainText(/min_beds|max_beds|greater/i)
+      await expect(page.getByTestId('redfin-form-error')).toHaveCount(0)
+      await expect(page.getByTestId('redfin-price-error')).toHaveCount(0)
+      await expect(page.getByTestId('redfin-baths-error')).toHaveCount(0)
+      await page.waitForTimeout(600)
+      expect(posts).toEqual([])
+    } finally {
+      page.off('request', onReq)
+    }
+  })
+
+  test('invalid min baths>max baths blocked', async ({ page }) => {
+    await page.goto('/scrapers')
+    await pickRedfin(page)
+
+    const url = 'https://www.redfin.com/city/4664/OH/Columbus'
+    await page.getByTestId('redfin-location-url').fill(url)
+    await page.getByTestId('redfin-resolve-btn').click()
+    await expect(page.getByText(/Resolved:/)).toBeVisible({ timeout: 15_000 })
+
+    const posts: string[] = []
+    const onReq = (req: import('@playwright/test').Request) => {
+      if (
+        req.method() === 'POST' &&
+        req.url().includes('/api/scraper-sources') &&
+        !req.url().includes('resolve-redfin') &&
+        !req.url().includes('/test')
+      ) {
+        posts.push(req.url())
+      }
+    }
+    page.on('request', onReq)
+    try {
+      await page.getByTestId('redfin-min-baths').fill('3')
+      await page.getByTestId('redfin-max-baths').fill('1')
+      await page.getByTestId('redfin-form-submit').click()
+      await expect(page.getByTestId('redfin-baths-error')).toBeVisible()
+      await expect(page.getByTestId('redfin-baths-error')).toContainText(/min_baths|max_baths|greater/i)
+      await expect(page.getByTestId('redfin-form-error')).toHaveCount(0)
+      await expect(page.getByTestId('redfin-price-error')).toHaveCount(0)
+      await expect(page.getByTestId('redfin-beds-error')).toHaveCount(0)
+      await page.waitForTimeout(600)
+      expect(posts).toEqual([])
+    } finally {
+      page.off('request', onReq)
+    }
+  })
+
+  test('num_homes out of range shows form error before Add in DOM', async ({ page }) => {
+    await page.goto('/scrapers')
+    await pickRedfin(page)
+
+    const url = 'https://www.redfin.com/city/4664/OH/Columbus'
+    await page.getByTestId('redfin-location-url').fill(url)
+    await page.getByTestId('redfin-resolve-btn').click()
+    await expect(page.getByText(/Resolved:/)).toBeVisible({ timeout: 15_000 })
+
+    await page.getByTestId('redfin-num-homes').fill('400')
+    await page.getByTestId('redfin-form-submit').click()
+
+    const err = page.getByTestId('redfin-form-error')
+    await expect(err).toBeVisible()
+    await expect(err).toContainText(/num_homes/i)
+
+    const errorBeforeSubmitButton = await err.evaluate((el) => {
+      const btn = document.querySelector('[data-testid="redfin-form-submit"]')
+      if (!btn) return false
+      return (el.compareDocumentPosition(btn) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0
+    })
+    expect(errorBeforeSubmitButton).toBe(true)
   })
 })
