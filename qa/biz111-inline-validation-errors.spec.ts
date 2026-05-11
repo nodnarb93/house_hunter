@@ -47,6 +47,7 @@ test.describe('BIZ-111 inline Redfin validation errors', () => {
       await expect(bedsErr).toContainText('min_beds is greater than max_beds')
       await expect(bathsErr).toBeVisible()
       await expect(bathsErr).toContainText('min_baths is greater than max_baths')
+      await expect(page.getByTestId('redfin-form-error')).toHaveCount(0)
 
       const priceFieldset = page.getByRole('group', { name: 'Price ($)' })
       const bedsFieldset = page.getByRole('group', { name: 'Beds' })

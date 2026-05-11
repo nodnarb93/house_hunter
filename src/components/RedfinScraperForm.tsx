@@ -459,12 +459,6 @@ export function RedfinScraperForm({ mode, initial, busy, onSubmit, onCancel, loc
         </div>
       </fieldset>
 
-      {(formError || serverError) && (
-        <p className="text-sm text-red-400" data-testid="redfin-form-error" role="alert">
-          {formError || serverError}
-        </p>
-      )}
-
       <div className="flex flex-wrap gap-2">
         <button type="button" className={btnCompact} data-testid="redfin-form-submit" disabled={busy} onClick={() => void submit()}>
           {busy ? 'Saving…' : mode === 'create' ? 'Add' : 'Save'}
