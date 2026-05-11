@@ -11,7 +11,7 @@ test('scrapers page: save schedule via UI succeeds (no 404)', async ({ page, req
   try {
     await page.goto('/scrapers')
     await page.getByTestId('scrapers-active-toggle').click()
-    await page.getByTestId(`scraper-edit-${scraper.id}`).click()
+    await page.getByTestId(`scraper-reschedule-${scraper.id}`).click()
     await expect(page.getByTestId('scraper-slot-picker')).toBeVisible()
     const picker = page.getByTestId('scraper-slot-picker')
     await picker.locator('button:not([disabled])').first().click()
