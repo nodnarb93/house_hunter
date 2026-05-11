@@ -75,6 +75,7 @@ export function parseRedfinUrl(inputUrl: string): RedfinParams | null {
       const max_beds = u.searchParams.get('max_beds') ?? u.searchParams.get('max-beds')
       const min_baths = u.searchParams.get('min_baths') ?? u.searchParams.get('min-baths')
       const max_baths = u.searchParams.get('max_baths') ?? u.searchParams.get('max-baths')
+      const statusParam = u.searchParams.get('status')
       const uipt = u.searchParams.get('uipt')
       if (min_price != null) params.min_price = parseInt(min_price, 10)
       if (max_price != null) params.max_price = parseInt(max_price, 10)
@@ -82,6 +83,10 @@ export function parseRedfinUrl(inputUrl: string): RedfinParams | null {
       if (max_beds != null) params.max_beds = parseInt(max_beds, 10)
       if (min_baths != null) params.min_baths = parseInt(min_baths, 10)
       if (max_baths != null) params.max_baths = parseInt(max_baths, 10)
+      if (statusParam != null) {
+        const st = parseInt(statusParam, 10)
+        if (!Number.isNaN(st)) params.status = st
+      }
       if (uipt != null) params.uipt = uipt
       return params
     }
@@ -102,8 +107,23 @@ export function parseRedfinUrl(inputUrl: string): RedfinParams | null {
       }
       const min_price = u.searchParams.get('min_price') ?? u.searchParams.get('min-price')
       const max_price = u.searchParams.get('max_price') ?? u.searchParams.get('max-price')
+      const min_beds = u.searchParams.get('min_beds') ?? u.searchParams.get('min-beds')
+      const max_beds = u.searchParams.get('max_beds') ?? u.searchParams.get('max-beds')
+      const min_baths = u.searchParams.get('min_baths') ?? u.searchParams.get('min-baths')
+      const max_baths = u.searchParams.get('max_baths') ?? u.searchParams.get('max-baths')
+      const statusParam = u.searchParams.get('status')
+      const uipt = u.searchParams.get('uipt')
       if (min_price != null) params.min_price = parseInt(min_price, 10)
       if (max_price != null) params.max_price = parseInt(max_price, 10)
+      if (min_beds != null) params.min_beds = parseInt(min_beds, 10)
+      if (max_beds != null) params.max_beds = parseInt(max_beds, 10)
+      if (min_baths != null) params.min_baths = parseInt(min_baths, 10)
+      if (max_baths != null) params.max_baths = parseInt(max_baths, 10)
+      if (statusParam != null) {
+        const st = parseInt(statusParam, 10)
+        if (!Number.isNaN(st)) params.status = st
+      }
+      if (uipt != null) params.uipt = uipt
       return params
     }
 
