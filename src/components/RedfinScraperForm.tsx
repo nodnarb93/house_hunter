@@ -314,6 +314,13 @@ export function RedfinScraperForm({ mode, initial, busy, onSubmit, onCancel, loc
         </div>
       </div>
 
+      {/* num_homes/page_number (and other form-wide client messages) render here so the message stays near those inputs; users who have scrolled toward Add still hit the error before the button in DOM order. Server 4xx uses this slot too since the message may apply to any field. */}
+      {(formError || serverError) && (
+        <p className="text-sm text-red-400" data-testid="redfin-form-error" role="alert">
+          {formError || serverError}
+        </p>
+      )}
+
       <fieldset className="space-y-2">
         <legend className="text-sm text-zinc-400">Price ($)</legend>
         <div className="grid max-w-lg grid-cols-2 gap-3">
