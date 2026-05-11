@@ -63,6 +63,24 @@ export interface Env {
   DB: AppDatabase
 }
 
+/** Redfin scraper `config_json` as explicit JSON-friendly fields for API responses. */
+export interface RedfinStructuredParams {
+  region_id: number
+  region_type: number
+  market: string
+  min_price: number | null
+  max_price: number | null
+  min_beds: number | null
+  max_beds: number | null
+  min_baths: number | null
+  max_baths: number | null
+  uipt: string | null
+  num_homes: number
+  page_number: number
+  status: number
+  v: number
+}
+
 /** Payload for hunt webhook / Discord notifications (post-scrape). */
 export interface HuntNotificationListing {
   id: number
