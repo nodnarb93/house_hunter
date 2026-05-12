@@ -41,12 +41,16 @@ export async function handleTestRoutes(request: Request, env: Env): Promise<Resp
     if (typeof body.hunt_id === 'number' && Number.isInteger(body.hunt_id)) {
       hunt_id = body.hunt_id
     }
+    let scraper_id: number | null = null
+    if (typeof body.scraper_id === 'number' && Number.isInteger(body.scraper_id)) {
+      scraper_id = body.scraper_id
+    }
     const mls_number = typeof body.mls_number === 'string' && body.mls_number.length > 0 ? body.mls_number : null
     const r = await env.DB.prepare(
-      `INSERT INTO listings (preset_id, hunt_id, run_id, title, link, price_cents, address, beds, baths, image_url, scraped_at, mls_number)
-       VALUES (?, ?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      `INSERT INTO listings (preset_id, scraper_id, hunt_id, run_id, title, link, price_cents, address, beds, baths, image_url, scraped_at, mls_number)
+       VALUES (?, ?, ?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     )
-      .bind(preset_id, hunt_id, title, link, price_cents, address, beds, baths, image_url, scraped_at, mls_number)
+      .bind(preset_id, scraper_id, hunt_id, title, link, price_cents, address, beds, baths, image_url, scraped_at, mls_number)
       .run()
     const id = r.meta.last_row_id
     return Response.json({ id }, { status: 201 })
