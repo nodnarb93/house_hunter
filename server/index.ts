@@ -19,7 +19,7 @@ const app = createApp(db)
 
 const port = parseInt(process.env.PORT ?? '3001', 10)
 
-serve({ fetch: app.fetch, port }, (info) => {
+serve({ fetch: app.fetch, port, hostname: '0.0.0.0' }, (info) => {
   console.log(`House Hunter server listening on http://localhost:${info.port}`)
 })
 

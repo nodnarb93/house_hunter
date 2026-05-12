@@ -61,6 +61,14 @@ npm run pm2:logs
 npm run pm2:stop
 ```
 
+#### Windows Firewall (LAN / Tailscale)
+
+When House Hunter runs under **PM2** on Windows, Node does **not** show the usual “allow through firewall?” prompt because PM2 starts it non-interactively, so inbound TCP on your `PORT` (default **3001**) may be blocked. Run **once** in an elevated PowerShell:
+
+```powershell
+New-NetFirewallRule -DisplayName "House Hunter (PM2)" -Direction Inbound -Action Allow -Protocol TCP -LocalPort 3001
+```
+
 Optional: `pm2 save` and `pm2 startup` so processes survive reboot (see PM2 docs). Set `DATABASE_PATH` or `DISABLE_SCHEDULED_SCRAPES` in `ecosystem.config.cjs` `env` or via `pm2 start … --update-env` if needed.
 
 **Environment**
