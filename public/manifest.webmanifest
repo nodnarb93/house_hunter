@@ -1,11 +1,12 @@
 {
   "name": "House Hunter",
   "short_name": "Hunter",
+  "id": "/?pwa=house-hunter",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
-  "theme_color": "#1a1a1a",
-  "background_color": "#1a1a1a",
+  "theme_color": "#14532d",
+  "background_color": "#09090b",
   "icons": [
     {
       "src": "/favicons/dark/android-chrome-192x192.png",
