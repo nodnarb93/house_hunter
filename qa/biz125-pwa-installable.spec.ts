@@ -71,6 +71,22 @@ test.describe('BIZ-125 / BIZ-126 PWA installability', () => {
     })
     expect(hasActive).toBe(true)
 
+    // Cross-origin fetches must not be handled by this SW's fetch listener; otherwise
+    // Playwright's page.route never sees them (BIZ-69 CDN counting regression).
+    await page.route('https://example.com/pwa-cross-origin-probe*', async (route) => {
+      await route.fulfill({
+        status: 200,
+        headers: { 'content-type': 'text/plain' },
+        body: 'pwa-probe-ok',
+      })
+    })
+    const probeText = await page.evaluate(async () => {
+      await navigator.serviceWorker.ready
+      const res = await fetch('https://example.com/pwa-cross-origin-probe')
+      return await res.text()
+    })
+    expect(probeText).toBe('pwa-probe-ok')
+
     expect(consoleErrors, `Unexpected console errors: ${consoleErrors.join(' | ')}`).toEqual([])
   })
 })
