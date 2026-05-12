@@ -111,13 +111,15 @@ export function RedfinParamsInfoButton({ variant }: RedfinParamsInfoButtonProps)
               <div>
                 <dt className="font-semibold text-zinc-200">Number of homes</dt>
                 <dd className="mt-0.5 text-zinc-400">
-                  Page size; how many listings Redfin returns per page. Default: 350.
+                  Page size; how many listings Redfin returns per scrape pass. Default and maximum: 350 (Redfin rejects
+                  higher values).
                 </dd>
               </div>
               <div>
                 <dt className="font-semibold text-zinc-200">Min price / Max price</dt>
                 <dd className="mt-0.5 text-zinc-400">
-                  Price band sent to Redfin. Listings outside the band are also filtered server-side after fetch.
+                  Price band sent to Redfin at scrape time. Each Hunt can also apply its own price filter under its
+                  Filters section; that filter runs independently after listings are stored.
                 </dd>
               </div>
               <div>
@@ -127,7 +129,7 @@ export function RedfinParamsInfoButton({ variant }: RedfinParamsInfoButtonProps)
               <div>
                 <dt className="font-semibold text-zinc-200">Min baths</dt>
                 <dd className="mt-0.5 text-zinc-400">
-                  Bathroom floor. Note: Redfin&apos;s config exposes no max-baths counterpart (confirmed in BIZ-114).
+                  Bathroom floor. Note: there is no corresponding max-baths parameter.
                 </dd>
               </div>
               <div>

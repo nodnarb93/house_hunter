@@ -304,6 +304,11 @@ export function RedfinScraperForm({ mode, initial, busy, onSubmit, onCancel, loc
             max={350}
             value={numHomes}
             onChange={(e) => setNumHomes(e.target.value)}
+            onBlur={() => {
+              const n = parseInt(numHomes, 10)
+              if (Number.isNaN(n) || n < 1) setNumHomes('1')
+              else if (n > 350) setNumHomes('350')
+            }}
             className={inputBase}
           />
         </div>
