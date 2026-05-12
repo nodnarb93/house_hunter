@@ -1,4 +1,22 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, type APIRequestContext } from '@playwright/test';
+
+async function fetchAllListingLinks(request: APIRequestContext): Promise<Set<string>> {
+  const links = new Set<string>();
+  let offset = 0;
+  const limit = 500;
+  while (true) {
+    const res = await request.get(`/api/listings?limit=${limit}&offset=${offset}`);
+    expect(res.status()).toBe(200);
+    const data = (await res.json()) as { listings: Array<{ link: string }>; total: number };
+    for (const row of data.listings) {
+      links.add(row.link);
+    }
+    if (data.listings.length === 0) break;
+    offset += data.listings.length;
+    if (offset >= data.total) break;
+  }
+  return links;
+}
 
 test.describe.configure({ mode: 'serial' });
 
@@ -31,8 +49,11 @@ test.describe('BIZ-51 Redfin scraper pipeline', () => {
     ctx.redfinOk = true;
   });
 
-  test('second run inserts no duplicate rows', async ({ request }) => {
+  test('second run dedupes (drift-tolerant invariants)', async ({ request }) => {
     test.skip(!ctx.redfinOk, 'Redfin returned no results');
+
+    const linksAfterRun1 = await fetchAllListingLinks(request);
+
     const run2 = await request.post(`/api/scrapers/${ctx.scraperId}/run`);
     test.skip(
       run2.status() === 502,
@@ -41,7 +62,23 @@ test.describe('BIZ-51 Redfin scraper pipeline', () => {
     expect(run2.status()).toBe(200);
     const body2 = (await run2.json()) as { ok: boolean; fetched: number; inserted: number };
     expect(body2.ok).toBe(true);
-    expect(body2.inserted).toBe(0);
+
+    const linksAfterRun2 = await fetchAllListingLinks(request);
+
+    // Invariant 1: nothing we saw after run 1 disappeared (no accidental row loss between runs).
+    for (const link of linksAfterRun1) {
+      expect(linksAfterRun2.has(link), `expected link still present after run 2: ${link}`).toBe(true);
+    }
+
+    // Invariant 2: net-new links in the DB match how many rows this run actually inserted (tolerates new Columbus listings).
+    let netNewLinks = 0;
+    for (const link of linksAfterRun2) {
+      if (!linksAfterRun1.has(link)) netNewLinks += 1;
+    }
+    expect(netNewLinks).toBe(body2.inserted);
+
+    // Invariant 3: second scrape of the same market must mostly be duplicates — without INSERT OR IGNORE this fails (502 or inserted === fetched).
+    expect(body2.inserted).toBeLessThan(body2.fetched);
   });
 
   test('listings include structured beds, baths, and price', async ({ request }) => {
