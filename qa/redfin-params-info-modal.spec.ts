@@ -46,7 +46,10 @@ test.describe('BIZ-118 Redfin params info modal', () => {
     const dialog = page.getByRole('dialog')
     await expect(dialog).toBeVisible()
     await expect(dialog).toContainText('Locked from the URL entered at scraper creation')
-    await expect(dialog).toContainText('no max-baths counterpart')
+    await expect(dialog).toContainText('no corresponding max-baths parameter')
+    await expect(dialog).toContainText('Filters section')
+    await expect(dialog).toContainText('Default and maximum: 350')
+    await expect(dialog).not.toContainText('BIZ-')
 
     await page.keyboard.press('Escape')
     await expect(dialog).toBeHidden()
