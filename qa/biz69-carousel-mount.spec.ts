@@ -1,4 +1,12 @@
-import { test, expect } from '@playwright/test'
+import { test, expect, type APIRequestContext } from '@playwright/test'
+
+async function createRssScraper(request: APIRequestContext, suffix: string) {
+  const res = await request.post('/api/scrapers', {
+    data: { url: `https://example.invalid/feed-${suffix}-${Date.now()}.xml` },
+  })
+  expect(res.status()).toBe(201)
+  return (await res.json()) as { id: number }
+}
 
 test.describe('BIZ-69 carousel mount cap (AC #6)', () => {
   test('listing gallery mounts at most three images and advances src when paging', async ({
@@ -10,6 +18,13 @@ test.describe('BIZ-69 carousel mount cap (AC #6)', () => {
     expect(hunt.status()).toBe(201)
     const { id: huntId } = (await hunt.json()) as { id: number }
 
+    const scraper = await createRssScraper(request, 'biz69-mount')
+    const scraperId = scraper.id
+    const huntPut = await request.put(`/api/house-hunts/${huntId}`, {
+      data: { scraper_ids: [scraperId] },
+    })
+    expect(huntPut.status()).toBe(200)
+
     const seed = await request.post('/api/test/seed-listing', {
       data: {
         title: 'BIZ-75 carousel mount listing',
@@ -19,6 +34,7 @@ test.describe('BIZ-69 carousel mount cap (AC #6)', () => {
         address: '2 Carousel Mount Rd',
         beds: 2,
         baths: 2,
+        scraper_id: scraperId,
       },
     })
     expect(seed.status()).toBe(201)
@@ -59,5 +75,6 @@ test.describe('BIZ-69 carousel mount cap (AC #6)', () => {
 
     await request.delete(`/api/test/listings/${listingId}`)
     await request.delete(`/api/house-hunts/${huntId}`)
+    await request.delete(`/api/scrapers/${scraperId}`).catch(() => {})
   })
 })

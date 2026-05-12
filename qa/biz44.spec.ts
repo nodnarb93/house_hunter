@@ -1,4 +1,12 @@
-import { test, expect } from '@playwright/test'
+import { test, expect, type APIRequestContext } from '@playwright/test'
+
+async function createRssScraper(request: APIRequestContext, suffix: string) {
+  const res = await request.post('/api/scrapers', {
+    data: { url: `https://example.invalid/feed-${suffix}-${Date.now()}.xml` },
+  })
+  expect(res.status()).toBe(201)
+  return (await res.json()) as { id: number }
+}
 
 test.describe('BIZ-44 dashboard refactor', () => {
   test('hunt detail: gear icon opens and closes configuration drawer', async ({ page, request }) => {
@@ -58,7 +66,16 @@ test.describe('BIZ-44 dashboard refactor', () => {
     expect(post.status()).toBe(201)
     const { id } = (await post.json()) as { id: number }
     let listingId: number | undefined
+    let scraperId: number | undefined
     try {
+      const scraper = await createRssScraper(request, 'biz44-grid')
+      scraperId = scraper.id
+
+      const filterPut = await request.put(`/api/house-hunts/${id}`, {
+        data: { filters: { keywords: 'BIZ44 Grid' }, scraper_ids: [scraperId] },
+      })
+      expect(filterPut.status()).toBe(200)
+
       const seed = await request.post('/api/test/seed-listing', {
         data: {
           title: 'BIZ44 Grid Property',
@@ -67,15 +84,11 @@ test.describe('BIZ-44 dashboard refactor', () => {
           address: '100 Grid St',
           beds: 3,
           baths: 2,
+          scraper_id: scraperId,
         },
       })
       expect(seed.status()).toBe(201)
       listingId = ((await seed.json()) as { id: number }).id
-
-      const filterPut = await request.put(`/api/house-hunts/${id}`, {
-        data: { filters: { keywords: 'BIZ44 Grid' } },
-      })
-      expect(filterPut.status()).toBe(200)
 
       await page.goto(`/hunts/${id}`)
       await expect(page.getByTestId('hunt-detail-results-grid')).toBeVisible()
@@ -86,6 +99,9 @@ test.describe('BIZ-44 dashboard refactor', () => {
         await request.delete(`/api/test/listings/${listingId}`)
       }
       await request.delete(`/api/house-hunts/${id}`)
+      if (scraperId !== undefined) {
+        await request.delete(`/api/scrapers/${scraperId}`).catch(() => {})
+      }
     }
   })
 

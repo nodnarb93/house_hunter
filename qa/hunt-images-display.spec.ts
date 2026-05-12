@@ -1,12 +1,22 @@
-import { test, expect } from '@playwright/test'
+import { test, expect, type APIRequestContext } from '@playwright/test'
+
+async function createRssScraper(request: APIRequestContext, suffix: string) {
+  const res = await request.post('/api/scrapers', {
+    data: { url: `https://example.invalid/feed-${suffix}-${Date.now()}.xml` },
+  })
+  expect(res.status()).toBe(201)
+  return (await res.json()) as { id: number }
+}
 
 test.describe('Hunt images display', () => {
   let huntId: number | undefined
   let listingId: number | undefined
+  let scraperId: number | undefined
 
   test.beforeEach(() => {
     huntId = undefined
     listingId = undefined
+    scraperId = undefined
   })
 
   test.afterEach(async ({ request }) => {
@@ -16,8 +26,12 @@ test.describe('Hunt images display', () => {
     if (huntId != null) {
       await request.delete(`/api/house-hunts/${huntId}`)
     }
+    if (scraperId != null) {
+      await request.delete(`/api/scrapers/${scraperId}`).catch(() => {})
+    }
     listingId = undefined
     huntId = undefined
+    scraperId = undefined
   })
 
   test('Seeded listing images render in hunt detail page (not "No image")', async ({ page, request }) => {
@@ -28,6 +42,13 @@ test.describe('Hunt images display', () => {
     expect(hunt.status()).toBe(201)
     ;({ id: huntId } = (await hunt.json()) as { id: number })
 
+    const scraper = await createRssScraper(request, 'biz63-img')
+    scraperId = scraper.id
+    const huntPut = await request.put(`/api/house-hunts/${huntId}`, {
+      data: { scraper_ids: [scraperId] },
+    })
+    expect(huntPut.status()).toBe(200)
+
     const seed = await request.post('/api/test/seed-listing', {
       data: {
         title: 'BIZ-63 Redfin-shaped listing',
@@ -37,6 +58,7 @@ test.describe('Hunt images display', () => {
         address: '1 Image Test St',
         beds: 3,
         baths: 2,
+        scraper_id: scraperId,
       },
     })
     expect(seed.status()).toBe(201)

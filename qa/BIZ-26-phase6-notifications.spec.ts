@@ -1,6 +1,14 @@
 import http from 'node:http'
 import type { AddressInfo } from 'node:net'
-import { test, expect } from '@playwright/test'
+import { test, expect, type APIRequestContext } from '@playwright/test'
+
+async function createRssScraper(request: APIRequestContext, suffix: string) {
+  const res = await request.post('/api/scrapers', {
+    data: { url: `https://example.invalid/feed-${suffix}-${Date.now()}.xml` },
+  })
+  expect(res.status()).toBe(201)
+  return (await res.json()) as { id: number }
+}
 
 /**
  * Phase 6 (BIZ-36): per-hunt notification routing after new listings.
@@ -47,8 +55,12 @@ test('POST scrape pipeline: hunt webhook receives matching listing; results incl
 
   let huntId: number | undefined
   let listingId: number | undefined
+  let scraperId: number | undefined
 
   try {
+    const scraper = await createRssScraper(request, 'phase6')
+    scraperId = scraper.id
+
     const post = await request.post('/api/house-hunts', { data: { name: `Phase6 notif ${Date.now()}` } })
     expect(post.status()).toBe(201)
     huntId = ((await post.json()) as { id: number }).id
@@ -56,6 +68,7 @@ test('POST scrape pipeline: hunt webhook receives matching listing; results incl
     const put = await request.put(`/api/house-hunts/${huntId}`, {
       data: {
         filters: {},
+        scraper_ids: [scraperId],
         notifications: [{ type: 'webhook', destination: webhookUrl, enabled: true }],
       },
     })
@@ -70,6 +83,7 @@ test('POST scrape pipeline: hunt webhook receives matching listing; results incl
         address: '123 Test St',
         beds: 2,
         baths: 1,
+        scraper_id: scraperId,
       },
     })
     expect(seed.status()).toBe(201)
@@ -101,6 +115,9 @@ test('POST scrape pipeline: hunt webhook receives matching listing; results incl
     }
     if (listingId !== undefined) {
       await request.delete(`/api/test/listings/${listingId}`)
+    }
+    if (scraperId !== undefined) {
+      await request.delete(`/api/scrapers/${scraperId}`).catch(() => {})
     }
     await new Promise<void>((resolve, reject) => {
       server.close((err) => (err ? reject(err) : resolve()))
