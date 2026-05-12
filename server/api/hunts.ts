@@ -118,8 +118,13 @@ async function queryHuntResults(env: Env, huntId: number): Promise<Response> {
   const f = await loadFilterState(env, huntId)
   const { clause, params } = buildHuntFilterWhereClause(f)
 
-  const sql = `SELECT id, title, link, price_cents, address, beds, baths, image_url, scraped_at, bookmarked FROM listings WHERE ${clause} ORDER BY scraped_at DESC`
-  const rows = await env.DB.prepare(sql).bind(...params).all<{
+  const sql = `SELECT l.id, l.title, l.link, l.price_cents, l.address, l.beds, l.baths, l.image_url, l.scraped_at, l.bookmarked
+               FROM listings l
+               INNER JOIN house_hunt_scrapers hhs
+                 ON hhs.scraper_id = l.scraper_id AND hhs.hunt_id = ?
+               WHERE ${clause}
+               ORDER BY l.scraped_at DESC`
+  const rows = await env.DB.prepare(sql).bind(huntId, ...params).all<{
     id: number
     title: string
     link: string

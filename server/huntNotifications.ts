@@ -137,10 +137,14 @@ export async function notifyHuntsForNewListings(db: AppDatabase, newListingIds: 
     const filters = await loadFilterState(db, hunt.hunt_id)
     const { clause, params: filterParams } = buildHuntFilterWhereClause(filters)
     const placeholders = newListingIds.map(() => '?').join(',')
-    const sql = `SELECT id, title, link, price_cents, address, beds, baths, image_url, scraped_at FROM listings WHERE id IN (${placeholders}) AND (${clause})`
+    const sql = `SELECT l.id, l.title, l.link, l.price_cents, l.address, l.beds, l.baths, l.image_url, l.scraped_at
+                 FROM listings l
+                 INNER JOIN house_hunt_scrapers hhs
+                   ON hhs.scraper_id = l.scraper_id AND hhs.hunt_id = ?
+                 WHERE l.id IN (${placeholders}) AND (${clause})`
     const matchRows = await db
       .prepare(sql)
-      .bind(...newListingIds, ...filterParams)
+      .bind(hunt.hunt_id, ...newListingIds, ...filterParams)
       .all<{
         id: number
         title: string
