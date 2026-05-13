@@ -5,17 +5,19 @@ import path from 'node:path'
 const TMP_DB_PATH = path.join(os.tmpdir(), `house_hunter-pw-${process.pid}-${Date.now()}.sqlite`)
 process.env.HOUSE_HUNTER_PW_DB_PATH = TMP_DB_PATH
 
+const PW_PORT = process.env.PW_TEST_PORT ?? '3001'
+
 export default defineConfig({
   testDir: './qa',
   workers: 1,
   globalTeardown: './qa/playwright.global-teardown.ts',
   webServer: {
     command: 'npm start',
-    url: 'http://localhost:3001',
+    url: `http://localhost:${PW_PORT}`,
     reuseExistingServer: false,
     timeout: 120_000,
     env: {
-      PORT: '3001',
+      PORT: PW_PORT,
       DISABLE_SCHEDULED_SCRAPES: '1',
       HOUSE_HUNTER_TEST_MODE: '1',
       DATABASE_PATH: TMP_DB_PATH,
@@ -25,7 +27,7 @@ export default defineConfig({
     {
       name: 'chromium',
       use: {
-        baseURL: 'http://localhost:3001',
+        baseURL: `http://localhost:${PW_PORT}`,
         ...devices['Desktop Chrome'],
       },
     },

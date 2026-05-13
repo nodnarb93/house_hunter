@@ -86,8 +86,23 @@ export interface HuntResultListing {
   scraper_id: number
 }
 
-export async function getHouseHuntResults(id: number): Promise<HuntResultListing[]> {
-  const r = await fetch(`${API}/house-hunts/${id}/results`)
+export const LISTING_SORT_KEYS = [
+  'price_asc',
+  'price_desc',
+  'scraped_desc',
+  'scraped_asc',
+  'bookmarked_first',
+] as const
+
+export type ListingSortKey = (typeof LISTING_SORT_KEYS)[number]
+
+export function isListingSortKey(v: unknown): v is ListingSortKey {
+  return typeof v === 'string' && (LISTING_SORT_KEYS as readonly string[]).includes(v)
+}
+
+export async function getHouseHuntResults(id: number, sort?: ListingSortKey): Promise<HuntResultListing[]> {
+  const q = sort != null ? `?sort=${encodeURIComponent(sort)}` : ''
+  const r = await fetch(`${API}/house-hunts/${id}/results${q}`)
   if (!r.ok) throw new Error(await r.text())
   return r.json()
 }
@@ -98,17 +113,23 @@ export async function deleteHouseHunt(id: number): Promise<void> {
   if (!r.ok) throw new Error(await r.text())
 }
 
-export async function getSettings(): Promise<{ webhook_url?: string; webhook_enabled?: string }> {
+export async function getSettings(): Promise<Record<string, string>> {
   const r = await fetch(`${API}/settings`)
   if (!r.ok) throw new Error(await r.text())
   return r.json()
 }
 
-export async function putSettings(webhook_url?: string, webhook_enabled?: boolean): Promise<Record<string, string>> {
+export type PutSettingsBody = {
+  webhook_url?: string
+  webhook_enabled?: boolean
+  default_listing_sort?: ListingSortKey
+}
+
+export async function putSettings(body: PutSettingsBody): Promise<Record<string, string>> {
   const r = await fetch(`${API}/settings`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ webhook_url, webhook_enabled }),
+    body: JSON.stringify(body),
   })
   if (!r.ok) throw new Error(await r.text())
   return r.json()

@@ -1,6 +1,19 @@
 import type { Env } from '../types'
 import { buildHuntFilterWhereClause, type FilterState } from '../huntFilters'
 
+/** SQL ORDER BY fragments; lookup is the only boundary — never interpolate raw user sort strings. */
+export const SORT_KEYS = {
+  price_asc: 'l.price_cents IS NULL, l.price_cents ASC, l.id ASC',
+  price_desc: 'l.price_cents IS NULL, l.price_cents DESC, l.id DESC',
+  scraped_desc: 'l.scraped_at DESC',
+  scraped_asc: 'l.scraped_at ASC',
+  bookmarked_first: 'l.bookmarked DESC, l.scraped_at DESC',
+} as const
+
+export type SortKey = keyof typeof SORT_KEYS
+
+export const DEFAULT_SORT: SortKey = 'scraped_desc'
+
 interface HouseHuntRow {
   id: number
   name: string
@@ -111,19 +124,39 @@ async function buildHuntDetail(env: Env, huntId: number, hunt: HouseHuntRow | nu
   }
 }
 
-async function queryHuntResults(env: Env, huntId: number): Promise<Response> {
+async function loadDefaultListingSort(env: Env): Promise<SortKey | null> {
+  const row = await env.DB
+    .prepare("SELECT value FROM settings WHERE key = 'default_listing_sort'")
+    .first<{ value: string }>()
+  if (!row?.value) return null
+  return row.value in SORT_KEYS ? (row.value as SortKey) : null
+}
+
+async function queryHuntResults(env: Env, huntId: number, sortQueryParam: string | null): Promise<Response> {
   const hunt = await env.DB.prepare('SELECT id FROM house_hunts WHERE id = ?').bind(huntId).first<{ id: number }>()
   if (!hunt) return Response.json({ error: 'Not found' }, { status: 404 })
 
   const f = await loadFilterState(env, huntId)
   const { clause, params } = buildHuntFilterWhereClause(f)
 
+  let resolvedSort: SortKey
+  if (sortQueryParam !== null) {
+    if (!(sortQueryParam in SORT_KEYS)) {
+      return Response.json({ error: 'Invalid sort key' }, { status: 400 })
+    }
+    resolvedSort = sortQueryParam as SortKey
+  } else {
+    resolvedSort = (await loadDefaultListingSort(env)) ?? DEFAULT_SORT
+  }
+
+  const orderBy = SORT_KEYS[resolvedSort]
+
   const sql = `SELECT l.id, l.title, l.link, l.price_cents, l.address, l.beds, l.baths, l.image_url, l.scraped_at, l.bookmarked, l.scraper_id
                FROM listings l
                INNER JOIN house_hunt_scrapers hhs
                  ON hhs.scraper_id = l.scraper_id AND hhs.hunt_id = ?
                WHERE ${clause}
-               ORDER BY l.scraped_at DESC`
+               ORDER BY ${orderBy}`
   const rows = await env.DB.prepare(sql).bind(huntId, ...params).all<{
     id: number
     title: string
@@ -193,7 +226,10 @@ export async function handleHunts(request: Request, env: Env): Promise<Response>
   if (resultsMatch) {
     const id = parseInt(resultsMatch[1], 10)
     if (Number.isNaN(id)) return Response.json({ error: 'Invalid id' }, { status: 400 })
-    if (request.method === 'GET') return queryHuntResults(env, id)
+    if (request.method === 'GET') {
+      const sortParam = url.searchParams.has('sort') ? url.searchParams.get('sort') : null
+      return queryHuntResults(env, id, sortParam)
+    }
     return new Response('Method not allowed', { status: 405 })
   }
 
