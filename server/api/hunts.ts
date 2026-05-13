@@ -118,7 +118,7 @@ async function queryHuntResults(env: Env, huntId: number): Promise<Response> {
   const f = await loadFilterState(env, huntId)
   const { clause, params } = buildHuntFilterWhereClause(f)
 
-  const sql = `SELECT l.id, l.title, l.link, l.price_cents, l.address, l.beds, l.baths, l.image_url, l.scraped_at, l.bookmarked
+  const sql = `SELECT l.id, l.title, l.link, l.price_cents, l.address, l.beds, l.baths, l.image_url, l.scraped_at, l.bookmarked, l.scraper_id
                FROM listings l
                INNER JOIN house_hunt_scrapers hhs
                  ON hhs.scraper_id = l.scraper_id AND hhs.hunt_id = ?
@@ -135,6 +135,7 @@ async function queryHuntResults(env: Env, huntId: number): Promise<Response> {
     image_url: string | null
     scraped_at: string
     bookmarked: number
+    scraper_id: number
   }>()
   return Response.json(rows.results ?? [])
 }

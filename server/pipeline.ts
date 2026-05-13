@@ -55,6 +55,17 @@ function matchesFilters(entry: FeedEntry, config: FilterConfig): boolean {
   return true
 }
 
+async function resolveScraperIdForPresetListing(db: AppDatabase, link: string): Promise<number | null> {
+  const kind = link.includes('redfin.com') ? 'redfin' : 'rss'
+  const row = await db
+    .prepare(
+      `SELECT id FROM scraper_sources WHERE kind = ? ORDER BY created_at ASC, id ASC LIMIT 1`,
+    )
+    .bind(kind)
+    .first<{ id: number }>()
+  return row?.id ?? null
+}
+
 export async function runPipeline(
   db: AppDatabase,
   presetId: number
@@ -95,11 +106,13 @@ export async function runPipeline(
       .run()
     const runId = insert.meta.last_row_id as number
     const listingInsert = db.prepare(
-      'INSERT OR IGNORE INTO listings (preset_id, run_id, title, link, price_cents, address, scraped_at) VALUES (?, ?, ?, ?, ?, ?, ?)'
+      'INSERT OR IGNORE INTO listings (preset_id, scraper_id, run_id, title, link, price_cents, address, scraped_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
     )
     for (const e of passed) {
       const priceCents = extractFirstPriceCents(e)
-      await listingInsert.bind(presetId, runId, e.title, e.link, priceCents, null, finishedAt).run()
+      const scraperId = await resolveScraperIdForPresetListing(db, e.link)
+      if (scraperId == null) continue
+      await listingInsert.bind(presetId, scraperId, runId, e.title, e.link, priceCents, null, finishedAt).run()
     }
     const newListingIds = await getListingIdsByScrapedAt(db, finishedAt, presetId)
     await notifyHuntsForNewListings(db, newListingIds)

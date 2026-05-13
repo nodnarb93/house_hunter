@@ -14,7 +14,9 @@ test.describe('BIZ-69 listing_image_urls UNIQUE constraint', () => {
     const db = new Database(tmp)
     try {
       runMigrations(db)
-      db.prepare('INSERT INTO listings (title, link) VALUES (?, ?)').run('t', 'https://example.com/a')
+      db.prepare(`INSERT INTO scraper_sources (kind, url, config_json) VALUES ('rss', 'https://example.invalid/biz69-uniq', NULL)`).run()
+      const sid = (db.prepare('SELECT id FROM scraper_sources LIMIT 1').get() as { id: number }).id
+      db.prepare('INSERT INTO listings (title, link, scraper_id) VALUES (?, ?, ?)').run('t', 'https://example.com/a', sid)
       const row = db.prepare('SELECT id FROM listings LIMIT 1').get() as { id: number }
       db.prepare('INSERT INTO listing_image_urls (listing_id, url) VALUES (?, ?)').run(row.id, 'https://img.example/u')
 

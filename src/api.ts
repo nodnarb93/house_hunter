@@ -83,6 +83,7 @@ export interface HuntResultListing {
   image_url: string | null
   scraped_at: string
   bookmarked: number
+  scraper_id: number
 }
 
 export async function getHouseHuntResults(id: number): Promise<HuntResultListing[]> {
