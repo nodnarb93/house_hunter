@@ -44,6 +44,7 @@ export default function Triage() {
   const [listings, setListings] = useState<ListingRow[]>([])
   const [hunts, setHunts] = useState<HouseHunt[]>([])
   const [loading, setLoading] = useState(true)
+  const [activeStage, setActiveStage] = useState<(typeof STAGES)[number]['key']>('interested')
 
   const huntMap = useMemo(() => new Map(hunts.map((h) => [h.id, h.name])), [hunts])
 
@@ -118,11 +119,32 @@ export default function Triage() {
 
   const empty = !loading && listings.length === 0
 
+  const renderCardBody = (l: ListingRow) => (
+    <>
+      {l.hunt_id != null ? (
+        <span
+          data-testid="hunt-name-badge"
+          className="mb-1 self-start rounded-full bg-zinc-100/10 px-2 py-0.5 text-xs text-zinc-400"
+        >
+          {huntMap.get(l.hunt_id) ?? 'Unknown Hunt'}
+        </span>
+      ) : null}
+      <div className="line-clamp-1 text-sm font-medium text-white" title={l.title}>
+        {l.title}
+      </div>
+      <div className="mt-1 text-xs text-zinc-400">{formatPrice(l.price_cents)}</div>
+      <div className="mt-0.5 text-xs text-zinc-500">{formatScrapedDate(l.scraped_at)}</div>
+    </>
+  )
+
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-4">
       <div>
         <h1 className="text-lg font-semibold text-white">Triage</h1>
-        <p className="mt-1 text-sm text-zinc-400">Bookmarked listings by pipeline stage. Drag cards between columns.</p>
+        <p className="mt-1 text-sm text-zinc-400">
+          Bookmarked listings by pipeline stage. On mobile, tap a tab to switch stages; on desktop, drag cards between
+          columns.
+        </p>
       </div>
 
       {loading ? (
@@ -136,46 +158,95 @@ export default function Triage() {
             >
               No bookmarked listings yet — bookmark a listing from the Results page.
             </div>
-          ) : null}
-          <div className="grid min-h-[420px] flex-1 grid-cols-4 gap-3">
-            {STAGES.map((col) => (
-              <div
-                key={col.key}
-                data-testid={`triage-column-${col.key}`}
-                className="flex min-h-0 flex-col rounded-md border border-white/10 bg-zinc-900/30"
-                onDragOver={onDragOver}
-                onDrop={(e) => onDropColumn(e, col.key)}
-              >
-                <div className="border-b border-white/10 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-zinc-500">
-                  {col.label}
+          ) : (
+            <>
+              <div className="flex min-h-0 flex-1 flex-col gap-3 md:hidden">
+                <div role="tablist" className="flex gap-1 overflow-x-auto rounded-md border border-white/10 bg-zinc-900/30 p-1">
+                  {STAGES.map((s) => {
+                    const count = (byStage.get(s.key) ?? []).length
+                    const selected = activeStage === s.key
+                    return (
+                      <button
+                        key={s.key}
+                        type="button"
+                        role="tab"
+                        data-testid={`triage-tab-${s.key}`}
+                        aria-selected={selected}
+                        onClick={() => setActiveStage(s.key)}
+                        className={`flex min-w-0 flex-1 shrink-0 items-center justify-center gap-1.5 rounded px-2 py-2 text-xs font-medium transition-colors ${
+                          selected
+                            ? 'bg-zinc-800 text-white shadow-sm ring-1 ring-white/10'
+                            : 'text-zinc-400 hover:bg-zinc-800/50 hover:text-zinc-200'
+                        }`}
+                      >
+                        <span className="truncate">{s.label}</span>
+                        <span
+                          className={`shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-semibold tabular-nums ${
+                            selected ? 'bg-emerald-500/20 text-emerald-300' : 'bg-zinc-700/80 text-zinc-300'
+                          }`}
+                        >
+                          {count}
+                        </span>
+                      </button>
+                    )
+                  })}
                 </div>
-                <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto p-2">
-                  {(byStage.get(col.key) ?? []).map((l) => (
+                <div data-testid="triage-mobile-list" className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto">
+                  {(byStage.get(activeStage) ?? []).map((l) => (
                     <div
                       key={l.id}
-                      draggable
-                      onDragStart={(e) => onDragStart(e, l.id)}
-                      className="flex cursor-grab flex-col rounded-md border border-white/10 bg-zinc-900 px-3 py-2 active:cursor-grabbing"
+                      className="flex flex-col rounded-md border border-white/10 bg-zinc-900 px-3 py-2"
                     >
-                      {l.hunt_id != null ? (
-                        <span
-                          data-testid="hunt-name-badge"
-                          className="mb-1 self-start rounded-full bg-zinc-100/10 px-2 py-0.5 text-xs text-zinc-400"
+                      {renderCardBody(l)}
+                      <label className="mt-2 text-[10px] font-medium uppercase tracking-wide text-zinc-500">
+                        Stage
+                        <select
+                          data-testid={`triage-mobile-stage-select-${l.id}`}
+                          className="mt-1 w-full rounded border border-white/10 bg-zinc-950 px-2 py-1.5 text-xs text-white"
+                          value={STAGES.some((s) => s.key === l.stage) ? l.stage : 'interested'}
+                          onChange={(e) => void moveToStage(l.id, e.target.value)}
                         >
-                          {huntMap.get(l.hunt_id) ?? 'Unknown Hunt'}
-                        </span>
-                      ) : null}
-                      <div className="line-clamp-1 text-sm font-medium text-white" title={l.title}>
-                        {l.title}
-                      </div>
-                      <div className="mt-1 text-xs text-zinc-400">{formatPrice(l.price_cents)}</div>
-                      <div className="mt-0.5 text-xs text-zinc-500">{formatScrapedDate(l.scraped_at)}</div>
+                          {STAGES.map((s) => (
+                            <option key={s.key} value={s.key}>
+                              {s.label}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
                     </div>
                   ))}
                 </div>
               </div>
-            ))}
-          </div>
+
+              <div className="hidden min-h-[420px] flex-1 grid-cols-4 gap-3 md:grid">
+                {STAGES.map((col) => (
+                  <div
+                    key={col.key}
+                    data-testid={`triage-column-${col.key}`}
+                    className="flex min-h-0 flex-col rounded-md border border-white/10 bg-zinc-900/30"
+                    onDragOver={onDragOver}
+                    onDrop={(e) => onDropColumn(e, col.key)}
+                  >
+                    <div className="border-b border-white/10 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-zinc-500">
+                      {col.label}
+                    </div>
+                    <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto p-2">
+                      {(byStage.get(col.key) ?? []).map((l) => (
+                        <div
+                          key={l.id}
+                          draggable
+                          onDragStart={(e) => onDragStart(e, l.id)}
+                          className="flex cursor-grab flex-col rounded-md border border-white/10 bg-zinc-900 px-3 py-2 active:cursor-grabbing"
+                        >
+                          {renderCardBody(l)}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
         </div>
       )}
     </div>
