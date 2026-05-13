@@ -10,6 +10,7 @@
     "preview": "vite preview",
     "server:dev": "tsx watch server/index.ts",
     "scrape": "tsx server/scrape.ts",
+    "diag:biz135": "tsx scripts/biz135-image-loss-diagnosis.ts",
     "test": "playwright test",
     "test:list": "playwright test --reporter=list",
     "pm2:start": "pm2 start ecosystem.config.cjs",
