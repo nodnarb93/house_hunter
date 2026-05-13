@@ -29,7 +29,7 @@ export default function Settings() {
     setSuccess('')
     setSaving(true)
     try {
-      await putSettings(webhookUrl.trim(), webhookEnabled)
+      await putSettings({ webhook_url: webhookUrl.trim(), webhook_enabled: webhookEnabled })
       setSuccess('Settings saved.')
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to save')

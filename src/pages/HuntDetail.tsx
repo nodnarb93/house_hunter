@@ -2,12 +2,15 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { Lightbox } from '../components/Lightbox'
 import { ListingGallery } from '../components/ListingGallery'
-import type { HouseHuntDetail, HuntNotification, HuntResultListing, ScraperSource } from '../api'
+import type { HouseHuntDetail, HuntNotification, HuntResultListing, ListingSortKey, ScraperSource } from '../api'
 import {
   getHouseHuntDetail,
   getHouseHuntResults,
   getScrapers,
+  getSettings,
+  isListingSortKey,
   putHouseHunt,
+  putSettings,
 } from '../api'
 
 function formatPrice(cents: number | null): string {
@@ -44,6 +47,7 @@ export default function HuntDetail() {
   const [detail, setDetail] = useState<HouseHuntDetail | null>(null)
   const [scrapers, setScrapers] = useState<ScraperSource[]>([])
   const [results, setResults] = useState<HuntResultListing[]>([])
+  const [sortKey, setSortKey] = useState<ListingSortKey>('scraped_desc')
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [drawerOpen, setDrawerOpen] = useState(false)
@@ -87,13 +91,18 @@ export default function HuntDetail() {
   const load = useCallback(async () => {
     if (huntId == null) return
     setError(null)
-    const [d, s, r] = await Promise.all([
+    const [d, s, settings, r] = await Promise.all([
       getHouseHuntDetail(huntId),
       getScrapers(),
+      getSettings(),
       getHouseHuntResults(huntId),
     ])
     applyDetail(d)
     setScrapers(s)
+    const nextSort: ListingSortKey = isListingSortKey(settings.default_listing_sort)
+      ? settings.default_listing_sort
+      : 'scraped_desc'
+    setSortKey(nextSort)
     setResults(r)
   }, [huntId, applyDetail])
 
@@ -191,8 +200,25 @@ export default function HuntDetail() {
   async function refreshResults() {
     if (huntId == null) return
     await run(async () => {
-      setResults(await getHouseHuntResults(huntId))
+      setResults(await getHouseHuntResults(huntId, sortKey))
     })
+  }
+
+  async function changeSort(next: ListingSortKey) {
+    if (huntId == null) return
+    const prev = sortKey
+    setSortKey(next)
+    setBusy(true)
+    setError(null)
+    try {
+      const [r] = await Promise.all([getHouseHuntResults(huntId, next), putSettings({ default_listing_sort: next })])
+      setResults(r)
+    } catch (err) {
+      setSortKey(prev)
+      setError(err instanceof Error ? err.message : 'Request failed')
+    } finally {
+      setBusy(false)
+    }
   }
 
   async function toggleResultBookmark(r: HuntResultListing) {
@@ -514,17 +540,38 @@ export default function HuntDetail() {
       {detail ? (
         <>
           <div className="rounded-lg border border-white/10 bg-zinc-900/60">
-            <div className="flex items-center justify-between gap-2 border-b border-white/10 px-4 py-3">
+            <div className="flex flex-col gap-3 border-b border-white/10 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
               <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-500">Results</h2>
-              <button
-                type="button"
-                data-testid="hunt-detail-results-refresh"
-                disabled={busy}
-                onClick={() => void refreshResults()}
-                className="rounded-md border border-white/20 px-3 py-1.5 text-xs text-zinc-200 hover:bg-zinc-800 disabled:opacity-50"
-              >
-                Refresh
-              </button>
+              <div className="flex flex-wrap items-center justify-end gap-3">
+                <label className="flex items-center gap-2 text-sm text-zinc-400">
+                  Sort by
+                  <select
+                    data-testid="hunt-detail-sort"
+                    value={sortKey}
+                    disabled={busy}
+                    onChange={(e) => {
+                      const v = e.target.value
+                      if (isListingSortKey(v) && v !== sortKey) void changeSort(v)
+                    }}
+                    className="rounded-md border border-white/10 bg-zinc-950 px-2 py-1.5 text-sm text-white outline-none focus:border-zinc-500 disabled:opacity-50"
+                  >
+                    <option value="price_asc">Price (low to high)</option>
+                    <option value="price_desc">Price (high to low)</option>
+                    <option value="scraped_desc">Newest scraped</option>
+                    <option value="scraped_asc">Oldest scraped</option>
+                    <option value="bookmarked_first">Bookmarked first</option>
+                  </select>
+                </label>
+                <button
+                  type="button"
+                  data-testid="hunt-detail-results-refresh"
+                  disabled={busy}
+                  onClick={() => void refreshResults()}
+                  className="rounded-md border border-white/20 px-3 py-1.5 text-xs text-zinc-200 hover:bg-zinc-800 disabled:opacity-50"
+                >
+                  Refresh
+                </button>
+              </div>
             </div>
             {results.length === 0 ? (
               <div
