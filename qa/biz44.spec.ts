@@ -134,7 +134,7 @@ test.describe('BIZ-44 dashboard refactor', () => {
 
       await page.goto('/triage')
       await expect(page.getByTestId('triage-board')).toBeVisible()
-      const badge = page.getByTestId('hunt-name-badge').first()
+      const badge = page.getByTestId('triage-column-interested').getByTestId('hunt-name-badge').first()
       await expect(badge).toBeVisible()
       await expect(badge).toContainText(/BIZ44 Triage Hunt/)
     } finally {
