@@ -173,13 +173,13 @@ export default function Triage() {
                         data-testid={`triage-tab-${s.key}`}
                         aria-selected={selected}
                         onClick={() => setActiveStage(s.key)}
-                        className={`flex min-w-0 flex-1 shrink-0 items-center justify-center gap-1.5 rounded px-2 py-2 text-xs font-medium transition-colors ${
+                        className={`flex shrink-0 items-center justify-center gap-1.5 rounded px-2 py-2 text-xs font-medium transition-colors ${
                           selected
                             ? 'bg-zinc-800 text-white shadow-sm ring-1 ring-white/10'
                             : 'text-zinc-400 hover:bg-zinc-800/50 hover:text-zinc-200'
                         }`}
                       >
-                        <span className="truncate">{s.label}</span>
+                        <span>{s.label}</span>
                         <span
                           className={`shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-semibold tabular-nums ${
                             selected ? 'bg-emerald-500/20 text-emerald-300' : 'bg-zinc-700/80 text-zinc-300'
