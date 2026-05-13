@@ -123,14 +123,56 @@ export async function runScraperSource(
           finishedAt
         )
         .run()
+
+      let targetListingId: number | null = null
+      let mlsForExtract: string | null = listing.mls_number
+
       if (ins.meta.changes > 0) {
-        const newId = ins.meta.last_row_id
-        const source = findSourceForUrl(listing.link)
-        if (source) {
-          const urls = await source.extractPhotoUrls(listing.link, { mlsNumber: listing.mls_number })
-          await replaceListingImageUrls(db, newId, urls)
-          await new Promise((r) => setTimeout(r, 200))
+        targetListingId = ins.meta.last_row_id
+      } else if (ins.meta.changes === 0) {
+        const existing = await db
+          .prepare(
+            'SELECT id, mls_number FROM listings WHERE preset_id IS NULL AND link = ? LIMIT 1',
+          )
+          .bind(listing.link)
+          .first<{ id: number; mls_number: string | null }>()
+        if (existing) {
+          const imgRow = await db
+            .prepare('SELECT COUNT(*) AS c FROM listing_image_urls WHERE listing_id = ?')
+            .bind(existing.id)
+            .first<{ c: number }>()
+          const imgCount = imgRow?.c ?? 0
+          const csvMls = listing.mls_number?.trim() ?? ''
+          const dbMls = existing.mls_number?.trim() ?? ''
+          const mls =
+            csvMls.length > 0 && /^\d+$/.test(csvMls)
+              ? listing.mls_number
+              : dbMls.length > 0 && /^\d+$/.test(dbMls)
+                ? existing.mls_number
+                : null
+          if (mls != null && imgCount === 0) {
+            targetListingId = existing.id
+            mlsForExtract = mls
+          }
         }
+      }
+
+      if (targetListingId != null) {
+        try {
+          const source = findSourceForUrl(listing.link)
+          if (source) {
+            const urls = await source.extractPhotoUrls(listing.link, {
+              mlsNumber: mlsForExtract ?? undefined,
+            })
+            await replaceListingImageUrls(db, targetListingId, urls)
+          }
+        } catch (err) {
+          const detail = err instanceof Error ? err.message : String(err)
+          console.warn(
+            `[scheduler] scraper ${row.id}: image extraction failed for listing ${targetListingId} (${listing.link}): ${detail}`,
+          )
+        }
+        await new Promise((r) => setTimeout(r, 200))
       }
     }
     const newListingIds = await getListingIdsByScrapedAt(db, finishedAt, null)
