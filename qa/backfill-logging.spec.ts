@@ -1,7 +1,16 @@
-import { test, expect } from '@playwright/test'
+import { test, expect, type APIRequestContext } from '@playwright/test'
+
+async function createRssScraper(request: APIRequestContext, suffix: string) {
+  const res = await request.post('/api/scrapers', {
+    data: { url: `https://example.invalid/feed-${suffix}-${Date.now()}.xml` },
+  })
+  expect(res.status()).toBe(201)
+  return (await res.json()) as { id: number }
+}
 
 test.describe('BIZ-61 backfill response counts', () => {
   test('POST backfill-images returns queued, succeeded, and failed counts', async ({ request }) => {
+    const scraper = await createRssScraper(request, 'biz61')
     const seed = await request.post('/api/test/seed-listing', {
       data: {
         title: 'BIZ-61 backfill counts seed',
@@ -10,6 +19,7 @@ test.describe('BIZ-61 backfill response counts', () => {
         address: '61 Count Rd',
         beds: 3,
         baths: 2,
+        scraper_id: scraper.id,
       },
     })
     expect(seed.status()).toBe(201)
@@ -32,5 +42,6 @@ test.describe('BIZ-61 backfill response counts', () => {
     expect(body.queued as number).toBeGreaterThanOrEqual(1)
 
     await request.delete(`/api/test/listings/${id}`)
+    await request.delete(`/api/scrapers/${scraper.id}`).catch(() => {})
   })
 })

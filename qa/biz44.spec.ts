@@ -110,7 +110,10 @@ test.describe('BIZ-44 dashboard refactor', () => {
     expect(post.status()).toBe(201)
     const { id: huntId } = (await post.json()) as { id: number }
     let listingId: number | undefined
+    let scraperId: number | undefined
     try {
+      const scraper = await createRssScraper(request, 'biz44-triage')
+      scraperId = scraper.id
       const seed = await request.post('/api/test/seed-listing', {
         data: {
           hunt_id: huntId,
@@ -120,6 +123,7 @@ test.describe('BIZ-44 dashboard refactor', () => {
           address: '200 Triage Ave',
           beds: 2,
           baths: 1,
+          scraper_id: scraperId,
         },
       })
       expect(seed.status()).toBe(201)
@@ -138,6 +142,9 @@ test.describe('BIZ-44 dashboard refactor', () => {
         await request.delete(`/api/test/listings/${listingId}`)
       }
       await request.delete(`/api/house-hunts/${huntId}`)
+      if (scraperId !== undefined) {
+        await request.delete(`/api/scrapers/${scraperId}`).catch(() => {})
+      }
     }
   })
 })

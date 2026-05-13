@@ -1,10 +1,19 @@
-import { test, expect } from '@playwright/test'
+import { test, expect, type APIRequestContext } from '@playwright/test'
+
+async function createRssScraper(request: APIRequestContext, suffix: string) {
+  const res = await request.post('/api/scrapers', {
+    data: { url: `https://example.invalid/feed-${suffix}-${Date.now()}.xml` },
+  })
+  expect(res.status()).toBe(201)
+  return (await res.json()) as { id: number }
+}
 
 test.describe('BIZ-69 child 3: pipeline writes image URLs', () => {
   test('backfill fills listing_image_urls from Redfin fixture; GET /images returns CDN URLs; INSERT OR IGNORE is idempotent', async ({
     request,
   }) => {
     const uniq = Date.now()
+    const scraper = await createRssScraper(request, 'biz74-pipe')
     const seed = await request.post('/api/test/seed-listing', {
       data: {
         title: 'BIZ-74 URL pipeline seed',
@@ -14,6 +23,7 @@ test.describe('BIZ-69 child 3: pipeline writes image URLs', () => {
         address: '1 Pipeline Rd',
         beds: 2,
         baths: 2,
+        scraper_id: scraper.id,
       },
     })
     expect(seed.status()).toBe(201)
@@ -49,5 +59,6 @@ test.describe('BIZ-69 child 3: pipeline writes image URLs', () => {
     expect(body2.urls.length).toBe(n1)
 
     await request.delete(`/api/test/listings/${id}`)
+    await request.delete(`/api/scrapers/${scraper.id}`).catch(() => {})
   })
 })

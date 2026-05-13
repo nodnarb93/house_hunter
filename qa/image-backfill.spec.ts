@@ -1,10 +1,19 @@
-import { test, expect } from '@playwright/test'
+import { test, expect, type APIRequestContext } from '@playwright/test'
+
+async function createRssScraper(request: APIRequestContext, suffix: string) {
+  const res = await request.post('/api/scrapers', {
+    data: { url: `https://example.invalid/feed-${suffix}-${Date.now()}.xml` },
+  })
+  expect(res.status()).toBe(201)
+  return (await res.json()) as { id: number }
+}
 
 test.describe('BIZ-58 image backfill', () => {
   test('POST backfill queues image-less listings; Results Fetch Images control works', async ({
     page,
     request,
   }) => {
+    const scraper = await createRssScraper(request, 'biz58')
     const seed = await request.post('/api/test/seed-listing', {
       data: {
         title: 'BIZ-58 backfill seed',
@@ -13,6 +22,7 @@ test.describe('BIZ-58 image backfill', () => {
         address: '2 Backfill Rd',
         beds: 2,
         baths: 1,
+        scraper_id: scraper.id,
       },
     })
     expect(seed.status()).toBe(201)
@@ -38,5 +48,6 @@ test.describe('BIZ-58 image backfill', () => {
     await btn.click()
 
     await request.delete(`/api/test/listings/${id}`)
+    await request.delete(`/api/scrapers/${scraper.id}`).catch(() => {})
   })
 })

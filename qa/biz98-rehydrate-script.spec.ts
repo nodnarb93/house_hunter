@@ -62,11 +62,15 @@ test.describe('BIZ-98 rehydrate script', () => {
     const { raw, db } = openMigratedDb()
     try {
       raw
+        .prepare(`INSERT INTO scraper_sources (kind, url, config_json) VALUES ('rss', 'https://example.invalid/biz98-cleanup', NULL)`)
+        .run()
+      const scraperId = (raw.prepare('SELECT id FROM scraper_sources LIMIT 1').get() as { id: number }).id
+      raw
         .prepare(
-          `INSERT INTO listings (title, link, price_cents, address, beds, baths, preset_id)
-           VALUES (?, ?, ?, ?, ?, ?, NULL)`,
+          `INSERT INTO listings (title, link, price_cents, address, beds, baths, preset_id, scraper_id)
+           VALUES (?, ?, ?, ?, ?, ?, NULL, ?)`,
         )
-        .run('L', 'https://www.redfin.com/OH/foo/home/1', 1, 'a', 2, 1)
+        .run('L', 'https://www.redfin.com/OH/foo/home/1', 1, 'a', 2, 1, scraperId)
       const listingId = (raw.prepare('SELECT id FROM listings LIMIT 1').get() as { id: number }).id
 
       const fixtureUrl = 'https://ssl.cdn-redfin.com/photo/1/mbphotowidth/79708871_0.jpg'
@@ -165,12 +169,12 @@ test.describe('BIZ-98 rehydrate script', () => {
 
       raw
         .prepare(
-          `INSERT INTO listings (title, link, price_cents, address, beds, baths, preset_id, mls_number)
-           VALUES (?, ?, 1, 'a', 2, 1, NULL, NULL),
-                  (?, ?, 1, 'b', 2, 1, NULL, ?),
-                  (?, ?, 1, 'c', 2, 1, NULL, NULL)`,
+          `INSERT INTO listings (title, link, price_cents, address, beds, baths, preset_id, mls_number, scraper_id)
+           VALUES (?, ?, 1, 'a', 2, 1, NULL, NULL, ?),
+                  (?, ?, 1, 'b', 2, 1, NULL, ?, ?),
+                  (?, ?, 1, 'c', 2, 1, NULL, NULL, ?)`,
         )
-        .run('a', linkNeedsUpdate, 'b', linkAlreadyOk, '226013015', 'c', linkNotInCsv)
+        .run('a', linkNeedsUpdate, scraperId, 'b', linkAlreadyOk, '226013015', scraperId, 'c', linkNotInCsv, scraperId)
 
       const fetchImpl = createBiz98TestFetch(fixtureCsv)
 
@@ -201,10 +205,16 @@ test.describe('BIZ-98 rehydrate script', () => {
       const link = 'https://www.redfin.com/OH/Columbus/3583-Dresden-St-43224/home/75629611'
       raw
         .prepare(
-          `INSERT INTO listings (title, link, price_cents, address, beds, baths, preset_id, mls_number)
-           VALUES (?, ?, 1, 'addr', 3, 2, NULL, ?)`,
+          `INSERT INTO scraper_sources (kind, url, config_json) VALUES ('redfin', 'https://www.redfin.com/zip/43215', '{}')`,
         )
-        .run('biz98-img', link, '226015925')
+        .run()
+      const scraperRow = raw.prepare('SELECT id FROM scraper_sources LIMIT 1').get() as { id: number }
+      raw
+        .prepare(
+          `INSERT INTO listings (title, link, price_cents, address, beds, baths, preset_id, mls_number, scraper_id)
+           VALUES (?, ?, 1, 'addr', 3, 2, NULL, ?, ?)`,
+        )
+        .run('biz98-img', link, '226015925', scraperRow.id)
 
       const fakeFetch: typeof fetch = async (input, init) => {
         const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
@@ -272,11 +282,11 @@ test.describe('BIZ-98 rehydrate script', () => {
 
       raw
         .prepare(
-          `INSERT INTO listings (title, link, price_cents, address, beds, baths, preset_id, mls_number)
-           VALUES (?, ?, 1, 'r', 3, 2, NULL, NULL),
-                  (?, ?, 1, 'x', 1, 1, NULL, NULL)`,
+          `INSERT INTO listings (title, link, price_cents, address, beds, baths, preset_id, mls_number, scraper_id)
+           VALUES (?, ?, 1, 'r', 3, 2, NULL, NULL, ?),
+                  (?, ?, 1, 'x', 1, 1, NULL, NULL, ?)`,
         )
-        .run('redfin seed', redfinLink, 'rss seed', 'https://example.com/rss-only-item')
+        .run('redfin seed', redfinLink, scraperId, 'rss seed', 'https://example.com/rss-only-item', scraperId)
 
       const redfinId = (raw.prepare('SELECT id FROM listings WHERE link = ?').get(redfinLink) as {
         id: number
