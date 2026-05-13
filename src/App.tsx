@@ -119,17 +119,6 @@ export default function App() {
 
   return (
     <div className="flex min-h-screen overflow-x-hidden bg-zinc-950">
-      <button
-        type="button"
-        data-testid="sidebar-toggle"
-        aria-label="Toggle navigation"
-        aria-expanded={sidebarOpen}
-        onClick={() => setSidebarOpen((v) => !v)}
-        className="fixed left-3 top-3 z-50 inline-flex h-10 w-10 items-center justify-center rounded-md bg-zinc-900/80 text-zinc-200 shadow ring-1 ring-white/10 hover:bg-zinc-800"
-      >
-        {sidebarOpen ? <XIcon className="h-5 w-5" /> : <HamburgerIcon className="h-5 w-5" />}
-      </button>
-
       {!isDesktop && sidebarOpen ? (
         <div
           data-testid="sidebar-backdrop"
@@ -144,6 +133,18 @@ export default function App() {
         data-testid="sidebar"
         className={`fixed left-0 top-0 z-40 flex h-screen w-60 flex-col border-r border-white/10 bg-zinc-900 p-4 transition-transform duration-150 ${sidebarOpen ? '' : '-translate-x-full'}`}
       >
+        <div className="mb-2 flex justify-end">
+          <button
+            type="button"
+            data-testid="sidebar-close"
+            aria-label="Close navigation"
+            onClick={() => setSidebarOpen(false)}
+            className="inline-flex h-8 w-8 items-center justify-center rounded-md text-zinc-400 hover:bg-zinc-800 hover:text-white"
+          >
+            <XIcon className="h-4 w-4" />
+          </button>
+        </div>
+
         <HuntList
           hunts={hunts}
           loading={huntsLoading}
@@ -191,8 +192,21 @@ export default function App() {
       />
 
       <main
-        className={`ml-0 flex min-h-screen min-w-0 flex-1 flex-col py-6 pr-6 transition-[margin] duration-150 ${sidebarOpen ? 'pl-6 md:ml-60' : 'pl-16 md:ml-0'}`}
+        className={`flex min-h-screen min-w-0 flex-1 flex-col px-4 py-6 sm:px-6 transition-[margin] duration-150 ${sidebarOpen ? 'md:ml-60' : 'md:ml-0'}`}
       >
+        <div className="mb-4 flex items-center">
+          <button
+            type="button"
+            data-testid="sidebar-toggle"
+            aria-label="Toggle navigation"
+            aria-expanded={sidebarOpen}
+            onClick={() => setSidebarOpen((v) => !v)}
+            className="inline-flex h-10 w-10 items-center justify-center rounded-md bg-zinc-900/80 text-zinc-200 shadow ring-1 ring-white/10 hover:bg-zinc-800"
+          >
+            {sidebarOpen ? <XIcon className="h-5 w-5" /> : <HamburgerIcon className="h-5 w-5" />}
+          </button>
+        </div>
+
         <Routes>
           <Route path="/" element={<Navigate to="/scrapers" replace />} />
           <Route path="/scrapers" element={<Scrapers />} />

@@ -17,7 +17,12 @@ test.describe('BIZ-105 / BIZ-106 — heading clears hamburger when sidebar close
     const toggleBox = await page.getByTestId('sidebar-toggle').boundingBox()
     expect(headingBox).not.toBeNull()
     expect(toggleBox).not.toBeNull()
-    expect(headingBox!.x).toBeGreaterThanOrEqual(toggleBox!.x + toggleBox!.width)
+    const intersects =
+      headingBox!.x < toggleBox!.x + toggleBox!.width &&
+      headingBox!.x + headingBox!.width > toggleBox!.x &&
+      headingBox!.y < toggleBox!.y + toggleBox!.height &&
+      headingBox!.y + headingBox!.height > toggleBox!.y
+    expect(intersects).toBe(false)
   })
 })
 
@@ -35,6 +40,11 @@ test.describe('BIZ-105 / BIZ-106 — heading clears hamburger when sidebar close
     const toggleBox = await page.getByTestId('sidebar-toggle').boundingBox()
     expect(headingBox).not.toBeNull()
     expect(toggleBox).not.toBeNull()
-    expect(headingBox!.x).toBeGreaterThanOrEqual(toggleBox!.x + toggleBox!.width)
+    const intersects =
+      headingBox!.x < toggleBox!.x + toggleBox!.width &&
+      headingBox!.x + headingBox!.width > toggleBox!.x &&
+      headingBox!.y < toggleBox!.y + toggleBox!.height &&
+      headingBox!.y + headingBox!.height > toggleBox!.y
+    expect(intersects).toBe(false)
   })
 })
