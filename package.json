@@ -12,6 +12,7 @@
     "scrape": "tsx server/scrape.ts",
     "diag:biz135": "tsx scripts/biz135-image-loss-diagnosis.ts",
     "restore:biz136": "tsx scripts/biz136-restore-hunt-images.ts",
+    "restore:biz140": "tsx scripts/biz140-rehydrate-no-mls-redfin.ts",
     "test": "playwright test",
     "test:list": "playwright test --reporter=list",
     "pm2:start": "pm2 start ecosystem.config.cjs",
