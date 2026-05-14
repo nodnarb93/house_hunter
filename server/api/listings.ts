@@ -1,8 +1,21 @@
 import type { Env, Listing } from '../types'
 import { runImageBackfillForListings } from '../listingImageBackfill'
 
-const LISTING_STAGES = ['interested', 'contacted', 'tour_scheduled', 'rejected'] as const
+const LISTING_STAGES = ['interested', 'contacted', 'tour_scheduled', 'walkthrough', 'rejected'] as const
 type ListingStage = (typeof LISTING_STAGES)[number]
+
+const NULLABLE_STRING_PATCH_KEYS = [
+  'nickname',
+  'interested_notes',
+  'contacted_notes',
+  'tour_scheduled_at',
+  'tour_notes',
+  'walkthrough_notes',
+  'rejection_reason',
+] as const
+
+const LISTING_SELECT_COLUMNS = `id, preset_id, hunt_id, run_id, title, link, price_cents, address, beds, baths, image_url, scraped_at, seen, bookmarked, stage,
+         nickname, interested_notes, contacted_notes, tour_scheduled_at, tour_notes, walkthrough_notes, rejection_reason`
 
 function isListingStage(value: unknown): value is ListingStage {
   return typeof value === 'string' && (LISTING_STAGES as readonly string[]).includes(value)
@@ -19,6 +32,13 @@ function parseOptionalBit(value: string | null): 0 | 1 | undefined {
   if (value === '0') return 0
   if (value === '1') return 1
   return undefined
+}
+
+function serializeListing(row: Omit<Listing, 'displayName'>): Listing {
+  return {
+    ...row,
+    displayName: row.nickname ?? row.title,
+  }
 }
 
 export async function handleListings(request: Request, env: Env): Promise<Response> {
@@ -89,23 +109,24 @@ export async function handleListings(request: Request, env: Env): Promise<Respon
     const listParams = [...params, limit, offset]
     const rows = await env.DB
       .prepare(
-        `SELECT id, preset_id, hunt_id, run_id, title, link, price_cents, address, beds, baths, image_url, scraped_at, seen, bookmarked, stage
+        `SELECT ${LISTING_SELECT_COLUMNS}
          FROM listings WHERE ${whereSql}
          ORDER BY scraped_at DESC
          LIMIT ? OFFSET ?`
       )
       .bind(...listParams)
-      .all<Listing>()
+      .all<Omit<Listing, 'displayName'>>()
 
-    return Response.json({ listings: rows.results ?? [], total })
+    const listings = (rows.results ?? []).map(serializeListing)
+    return Response.json({ listings, total })
   }
 
   const patchMatch = path.match(/^\/api\/listings\/(\d+)$/)
   if (patchMatch && request.method === 'PATCH') {
     const id = Number(patchMatch[1])
-    let body: { seen?: unknown; bookmarked?: unknown; stage?: unknown }
+    let body: Record<string, unknown>
     try {
-      body = (await request.json()) as { seen?: unknown; bookmarked?: unknown; stage?: unknown }
+      body = (await request.json()) as Record<string, unknown>
     } catch {
       return Response.json({ error: 'Invalid JSON' }, { status: 400 })
     }
@@ -127,6 +148,22 @@ export async function handleListings(request: Request, env: Env): Promise<Respon
       updates.push('stage = ?')
       values.push(body.stage)
     }
+
+    for (const key of NULLABLE_STRING_PATCH_KEYS) {
+      if (!(key in body)) continue
+      const v = body[key as string]
+      if (v !== null && typeof v !== 'string') {
+        return Response.json({ error: 'Invalid field value' }, { status: 400 })
+      }
+      if (v === null || v === '') {
+        updates.push(`${key} = ?`)
+        values.push(null)
+      } else {
+        updates.push(`${key} = ?`)
+        values.push(v)
+      }
+    }
+
     if (!updates.length) {
       return Response.json({ error: 'No valid fields to update' }, { status: 400 })
     }
@@ -135,14 +172,11 @@ export async function handleListings(request: Request, env: Env): Promise<Respon
     await env.DB.prepare(`UPDATE listings SET ${updates.join(', ')} WHERE id = ?`).bind(...values).run()
 
     const row = await env.DB
-      .prepare(
-        `SELECT id, preset_id, hunt_id, run_id, title, link, price_cents, address, beds, baths, image_url, scraped_at, seen, bookmarked, stage
-         FROM listings WHERE id = ?`
-      )
+      .prepare(`SELECT ${LISTING_SELECT_COLUMNS} FROM listings WHERE id = ?`)
       .bind(id)
-      .first<Listing>()
+      .first<Omit<Listing, 'displayName'>>()
     if (!row) return new Response('Not found', { status: 404 })
-    return Response.json(row)
+    return Response.json(serializeListing(row))
   }
 
   return new Response('Not found', { status: 404 })
