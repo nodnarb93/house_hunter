@@ -1,13 +1,14 @@
-import { type ReactNode, useEffect } from 'react'
+import { useEffect, type ReactNode } from 'react'
 
-interface ModalProps {
+export interface ModalProps {
   open: boolean
   onClose: () => void
-  ariaLabel: string
+  ariaLabelledBy?: string
+  testId?: string
   children: ReactNode
 }
 
-export function Modal({ open, onClose, ariaLabel, children }: ModalProps) {
+export default function Modal({ open, onClose, ariaLabelledBy, testId, children }: ModalProps) {
   useEffect(() => {
     if (!open) return
     const onKey = (e: KeyboardEvent) => {
@@ -18,20 +19,19 @@ export function Modal({ open, onClose, ariaLabel, children }: ModalProps) {
   }, [open, onClose])
 
   if (!open) return null
+
   return (
     <div
-      data-testid="modal-backdrop"
       role="dialog"
       aria-modal="true"
-      aria-label={ariaLabel}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 py-8"
-      onClick={onClose}
+      aria-labelledby={ariaLabelledBy}
+      data-testid={testId}
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose()
+      }}
     >
-      <div
-        data-testid="modal-content"
-        className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-lg border border-white/10 bg-zinc-900 p-6 text-white shadow-xl"
-        onClick={(e) => e.stopPropagation()}
-      >
+      <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-lg border border-white/10 bg-zinc-900 shadow-xl">
         {children}
       </div>
     </div>

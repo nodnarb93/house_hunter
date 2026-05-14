@@ -6,11 +6,10 @@ import {
   useState,
   type DragEvent,
   type KeyboardEvent,
-  type SVGProps,
 } from 'react'
 import type { HouseHunt } from '../api'
 import { getHouseHunts } from '../api'
-import { ListingDetailModal, type ListingDetailModalListing } from '../components/ListingDetailModal'
+import ListingDetailModal, { type ListingDetailModalListing } from '../components/ListingDetailModal'
 
 const STAGES = [
   { key: 'interested' as const, label: 'Interested' },
@@ -35,29 +34,31 @@ interface ListingRow extends ListingDetailModalListing {
   bookmarked: number
 }
 
-function hasAnyNotes(l: ListingRow): boolean {
-  return [l.interested_notes, l.contacted_notes, l.tour_notes, l.walkthrough_notes, l.rejection_reason].some(
-    (v) => v != null && String(v) !== '',
+function hasNotes(l: ListingRow): boolean {
+  return !!(
+    l.interested_notes ||
+    l.contacted_notes ||
+    l.tour_scheduled_at ||
+    l.tour_notes ||
+    l.walkthrough_notes ||
+    l.rejection_reason
   )
 }
 
-function NotesGlyph(props: SVGProps<SVGSVGElement>) {
+function NotepadIcon(props: { className?: string }) {
   return (
     <svg
-      width={12}
-      height={12}
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
-      strokeWidth="2"
+      strokeWidth="1.5"
       strokeLinecap="round"
       strokeLinejoin="round"
-      className="shrink-0 text-zinc-500"
-      {...props}
+      className={props.className}
+      aria-hidden
     >
-      <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
-      <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
-      <path d="M8 7h8M8 11h8M8 15h5" />
+      <rect x="5" y="3" width="14" height="18" rx="2" />
+      <path d="M9 8h6M9 12h6M9 16h4" />
     </svg>
   )
 }
@@ -119,7 +120,7 @@ export default function Triage() {
   const [nicknameDraft, setNicknameDraft] = useState('')
   const [brokenThumbIds, setBrokenThumbIds] = useState<Record<number, true>>({})
   const skipBlurSaveRef = useRef(false)
-  const [modalListingId, setModalListingId] = useState<number | null>(null)
+  const [detailListingId, setDetailListingId] = useState<number | null>(null)
 
   const huntMap = useMemo(() => new Map(hunts.map((h) => [h.id, h.name])), [hunts])
 
@@ -207,7 +208,7 @@ export default function Triage() {
 
   const empty = !loading && listings.length === 0
 
-  const modalListing = listings.find((l) => l.id === modalListingId) ?? null
+  const detailListing = detailListingId == null ? null : (listings.find((l) => l.id === detailListingId) ?? null)
 
   const renderSecondaryLine = (l: ListingRow) => {
     const allNull = l.beds == null && l.baths == null && (l.address == null || l.address === '')
@@ -256,16 +257,16 @@ export default function Triage() {
 
     return (
       <div
-        className="flex flex-row gap-3"
+        className="flex cursor-pointer flex-row gap-3"
         data-testid={`triage-tile-${l.id}`}
         role="button"
         tabIndex={0}
-        onClick={() => setModalListingId(l.id)}
+        onClick={() => setDetailListingId(l.id)}
         onKeyDown={(e) => {
           if (e.key !== 'Enter') return
           if (e.currentTarget !== e.target) return
           e.preventDefault()
-          setModalListingId(l.id)
+          setDetailListingId(l.id)
         }}
       >
         <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded bg-zinc-800">
@@ -287,19 +288,16 @@ export default function Triage() {
           )}
         </div>
         <div className="flex min-w-0 flex-1 flex-col">
-          <div className="mb-1 flex flex-wrap items-center gap-2 self-start">
-            {l.hunt_id != null ? (
+          {l.hunt_id != null ? (
+            <div className="mb-1 flex flex-wrap items-center gap-2 self-start">
               <span
                 data-testid="hunt-name-badge"
                 className="rounded-full bg-zinc-100/10 px-2 py-0.5 text-xs text-zinc-400"
               >
                 {huntMap.get(l.hunt_id) ?? 'Unknown Hunt'}
               </span>
-            ) : null}
-            {hasAnyNotes(l) ? (
-              <NotesGlyph data-testid={`triage-tile-has-notes-${l.id}`} aria-label="Has notes" />
-            ) : null}
-          </div>
+            </div>
+          ) : null}
           {editingNicknameId === l.id ? (
             <input
               data-testid={`triage-tile-nickname-input-${l.id}`}
@@ -334,6 +332,16 @@ export default function Triage() {
               >
                 <PencilIcon />
               </button>
+              {hasNotes(l) ? (
+                <span
+                  data-testid={`triage-tile-has-notes-${l.id}`}
+                  aria-label="Has notes"
+                  role="img"
+                  className="inline-flex shrink-0 text-zinc-400"
+                >
+                  <NotepadIcon className="h-3.5 w-3.5" />
+                </span>
+              ) : null}
             </div>
           )}
           {renderSecondaryLine(l)}
@@ -409,7 +417,10 @@ export default function Triage() {
                       className="flex flex-col rounded-md border border-white/10 bg-zinc-900 px-3 py-2"
                     >
                       {renderTriageTile(l)}
-                      <label className="mt-2 text-[10px] font-medium uppercase tracking-wide text-zinc-500">
+                      <label
+                        className="mt-2 text-[10px] font-medium uppercase tracking-wide text-zinc-500"
+                        onClick={(e) => e.stopPropagation()}
+                      >
                         Stage
                         <select
                           data-testid={`triage-mobile-stage-select-${l.id}`}
@@ -464,9 +475,10 @@ export default function Triage() {
         </div>
       )}
       <ListingDetailModal
-        listing={modalListing}
-        onClose={() => setModalListingId(null)}
-        onUpdate={(updated) => {
+        open={detailListing !== null}
+        listing={detailListing}
+        onClose={() => setDetailListingId(null)}
+        onPatched={(updated) => {
           setListings((prev) => prev.map((row) => (row.id === updated.id ? { ...row, ...updated } : row)))
         }}
       />
