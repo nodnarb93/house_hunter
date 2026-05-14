@@ -14,7 +14,9 @@ const NULLABLE_STRING_PATCH_KEYS = [
   'rejection_reason',
 ] as const
 
-const LISTING_SELECT_COLUMNS = `id, preset_id, hunt_id, run_id, title, link, price_cents, address, beds, baths, image_url, scraped_at, seen, bookmarked, stage,
+const LISTING_SELECT_COLUMNS = `id, preset_id, hunt_id, run_id, title, link, price_cents, address, beds, baths,
+         COALESCE(listings.image_url, (SELECT url FROM listing_image_urls WHERE listing_id = listings.id ORDER BY display_order ASC LIMIT 1)) AS image_url,
+         scraped_at, seen, bookmarked, stage,
          nickname, interested_notes, contacted_notes, tour_scheduled_at, tour_notes, walkthrough_notes, rejection_reason`
 
 function isListingStage(value: unknown): value is ListingStage {
