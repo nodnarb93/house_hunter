@@ -181,14 +181,28 @@ test.describe('BIZ-158 / BIZ-160 triage tile + walkthrough column', () => {
 
   test('thumbnail img mounts for seeded image_url', async ({ page, request }) => {
     const badUrl = 'https://example.invalid/x.jpg'
-    const { id } = await seedBookmarkedListing(request, `BIZ158 badimg ${Date.now()}`, { image_url: badUrl })
-    await page.setViewportSize({ width: 1280, height: 800 })
-    await page.goto('/triage')
+    let releaseImage: () => void = () => {}
+    const imageStall = new Promise<void>((resolve) => {
+      releaseImage = resolve
+    })
+    await page.route(badUrl, async (route) => {
+      await imageStall
+      // Duplicate fetches for the same URL can race; swallow "already handled".
+      await route.abort().catch(() => {})
+    })
+    try {
+      const { id } = await seedBookmarkedListing(request, `BIZ158 badimg ${Date.now()}`, { image_url: badUrl })
+      await page.setViewportSize({ width: 1280, height: 800 })
+      await page.goto('/triage')
 
-    const desk = page.getByTestId('triage-desktop-kanban')
-    const img = desk.locator(`[data-testid="triage-tile-thumb-img"][src="${badUrl}"]`).first()
-    await expect(img).toBeAttached({ timeout: 5000 })
-    await expect(desk.getByTestId(`triage-tile-displayname-${id}`)).toBeVisible()
+      const desk = page.getByTestId('triage-desktop-kanban')
+      const img = desk.locator(`[data-testid="triage-tile-thumb-img"][src="${badUrl}"]`).first()
+      await expect(img).toBeAttached({ timeout: 5000 })
+      await expect(desk.getByTestId(`triage-tile-displayname-${id}`)).toBeVisible()
+    } finally {
+      releaseImage()
+      await page.unroute(badUrl)
+    }
   })
 
   test('drag listing from tour_scheduled to walkthrough', async ({ page, request }) => {

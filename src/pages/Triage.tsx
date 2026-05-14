@@ -9,6 +9,7 @@ import {
 } from 'react'
 import type { HouseHunt } from '../api'
 import { getHouseHunts } from '../api'
+import ListingDetailModal, { type ListingDetailModalListing } from '../components/ListingDetailModal'
 
 const STAGES = [
   { key: 'interested' as const, label: 'Interested' },
@@ -18,12 +19,10 @@ const STAGES = [
   { key: 'rejected' as const, label: 'Rejected' },
 ]
 
-interface ListingRow {
-  id: number
+interface ListingRow extends ListingDetailModalListing {
   preset_id: number | null
   hunt_id: number | null
   run_id: number | null
-  title: string
   link: string
   price_cents: number | null
   address: string | null
@@ -33,9 +32,35 @@ interface ListingRow {
   scraped_at: string
   seen: number
   bookmarked: number
-  stage: string
-  nickname: string | null
-  displayName?: string
+}
+
+function hasNotes(l: ListingRow): boolean {
+  return !!(
+    l.interested_notes ||
+    l.contacted_notes ||
+    l.tour_scheduled_at ||
+    l.tour_notes ||
+    l.walkthrough_notes ||
+    l.rejection_reason
+  )
+}
+
+function NotepadIcon(props: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={props.className}
+      aria-hidden
+    >
+      <rect x="5" y="3" width="14" height="18" rx="2" />
+      <path d="M9 8h6M9 12h6M9 16h4" />
+    </svg>
+  )
 }
 
 function formatPrice(cents: number | null): string {
@@ -95,6 +120,7 @@ export default function Triage() {
   const [nicknameDraft, setNicknameDraft] = useState('')
   const [brokenThumbIds, setBrokenThumbIds] = useState<Record<number, true>>({})
   const skipBlurSaveRef = useRef(false)
+  const [detailListingId, setDetailListingId] = useState<number | null>(null)
 
   const huntMap = useMemo(() => new Map(hunts.map((h) => [h.id, h.name])), [hunts])
 
@@ -182,6 +208,8 @@ export default function Triage() {
 
   const empty = !loading && listings.length === 0
 
+  const detailListing = detailListingId == null ? null : (listings.find((l) => l.id === detailListingId) ?? null)
+
   const renderSecondaryLine = (l: ListingRow) => {
     const allNull = l.beds == null && l.baths == null && (l.address == null || l.address === '')
     if (allNull) {
@@ -228,7 +256,19 @@ export default function Triage() {
     }
 
     return (
-      <div className="flex flex-row gap-3">
+      <div
+        className="flex cursor-pointer flex-row gap-3"
+        data-testid={`triage-tile-${l.id}`}
+        role="button"
+        tabIndex={0}
+        onClick={() => setDetailListingId(l.id)}
+        onKeyDown={(e) => {
+          if (e.key !== 'Enter') return
+          if (e.currentTarget !== e.target) return
+          e.preventDefault()
+          setDetailListingId(l.id)
+        }}
+      >
         <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded bg-zinc-800">
           {showImg ? (
             <img
@@ -249,12 +289,14 @@ export default function Triage() {
         </div>
         <div className="flex min-w-0 flex-1 flex-col">
           {l.hunt_id != null ? (
-            <span
-              data-testid="hunt-name-badge"
-              className="mb-1 self-start rounded-full bg-zinc-100/10 px-2 py-0.5 text-xs text-zinc-400"
-            >
-              {huntMap.get(l.hunt_id) ?? 'Unknown Hunt'}
-            </span>
+            <div className="mb-1 flex flex-wrap items-center gap-2 self-start">
+              <span
+                data-testid="hunt-name-badge"
+                className="rounded-full bg-zinc-100/10 px-2 py-0.5 text-xs text-zinc-400"
+              >
+                {huntMap.get(l.hunt_id) ?? 'Unknown Hunt'}
+              </span>
+            </div>
           ) : null}
           {editingNicknameId === l.id ? (
             <input
@@ -272,6 +314,7 @@ export default function Triage() {
               <span
                 data-testid={`triage-tile-displayname-${l.id}`}
                 className="line-clamp-1 text-sm font-medium text-white"
+                onClick={(e) => e.stopPropagation()}
               >
                 {label}
               </span>
@@ -289,6 +332,16 @@ export default function Triage() {
               >
                 <PencilIcon />
               </button>
+              {hasNotes(l) ? (
+                <span
+                  data-testid={`triage-tile-has-notes-${l.id}`}
+                  aria-label="Has notes"
+                  role="img"
+                  className="inline-flex shrink-0 text-zinc-400"
+                >
+                  <NotepadIcon className="h-3.5 w-3.5" />
+                </span>
+              ) : null}
             </div>
           )}
           {renderSecondaryLine(l)}
@@ -364,7 +417,10 @@ export default function Triage() {
                       className="flex flex-col rounded-md border border-white/10 bg-zinc-900 px-3 py-2"
                     >
                       {renderTriageTile(l)}
-                      <label className="mt-2 text-[10px] font-medium uppercase tracking-wide text-zinc-500">
+                      <label
+                        className="mt-2 text-[10px] font-medium uppercase tracking-wide text-zinc-500"
+                        onClick={(e) => e.stopPropagation()}
+                      >
                         Stage
                         <select
                           data-testid={`triage-mobile-stage-select-${l.id}`}
@@ -418,6 +474,14 @@ export default function Triage() {
           )}
         </div>
       )}
+      <ListingDetailModal
+        open={detailListing !== null}
+        listing={detailListing}
+        onClose={() => setDetailListingId(null)}
+        onPatched={(updated) => {
+          setListings((prev) => prev.map((row) => (row.id === updated.id ? { ...row, ...updated } : row)))
+        }}
+      />
     </div>
   )
 }
