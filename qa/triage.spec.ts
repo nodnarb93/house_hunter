@@ -20,6 +20,7 @@ test('triage Kanban page and listings stage API', async ({ page, request }) => {
     await expect(page.getByTestId('triage-column-interested')).toBeVisible()
     await expect(page.getByTestId('triage-column-contacted')).toBeVisible()
     await expect(page.getByTestId('triage-column-tour_scheduled')).toBeVisible()
+    await expect(page.getByTestId('triage-column-walkthrough')).toBeVisible()
     await expect(page.getByTestId('triage-column-rejected')).toBeVisible()
   }
 

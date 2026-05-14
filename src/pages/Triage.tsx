@@ -35,7 +35,13 @@ interface ListingRow {
   bookmarked: number
   stage: string
   nickname: string | null
-  displayName?: string
+  displayName: string
+  interested_notes: string | null
+  contacted_notes: string | null
+  tour_scheduled_at: string | null
+  tour_notes: string | null
+  walkthrough_notes: string | null
+  rejection_reason: string | null
 }
 
 function formatPrice(cents: number | null): string {
@@ -51,10 +57,10 @@ function formatScrapedDate(iso: string): string {
   }
 }
 
-function PencilIcon() {
+function PencilIcon(props: { className?: string }) {
   return (
     <svg
-      className="h-3.5 w-3.5 shrink-0 text-zinc-500 hover:text-zinc-300"
+      className={props.className}
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
@@ -69,19 +75,10 @@ function PencilIcon() {
   )
 }
 
-function HouseThumbPlaceholder() {
+function HouseIcon(props: { className?: string }) {
   return (
-    <svg
-      className="h-8 w-8 text-zinc-600"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.5"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden
-    >
-      <path d="M3 10.5 12 3l9 7.5V21a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1v-10.5Z" />
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className={props.className} aria-hidden>
+      <path d="M3 11.5 12 4l9 7.5V20a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1v-8.5Z" />
     </svg>
   )
 }
@@ -104,7 +101,12 @@ export default function Triage() {
       const [r, huntList] = await Promise.all([fetch('/api/listings?bookmarked=1'), getHouseHunts()])
       if (!r.ok) throw new Error(await r.text())
       const data = (await r.json()) as { listings: ListingRow[] }
-      setListings(data.listings ?? [])
+      setListings(
+        (data.listings ?? []).map((row) => ({
+          ...row,
+          displayName: row.displayName ?? row.title,
+        })),
+      )
       setHunts(huntList)
     } catch {
       setListings([])
@@ -149,14 +151,12 @@ export default function Triage() {
     setListings((prev) => prev.map((l) => (l.id === listingId ? updated : l)))
   }
 
-  const saveNickname = async (listingId: number, raw: string) => {
+  const saveNickname = async (listingId: number, nickname: string | null) => {
     const r = await fetch(`/api/listings/${listingId}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ nickname: raw }),
+      body: JSON.stringify({ nickname }),
     })
-    setEditingNicknameId(null)
-    setNicknameDraft('')
     if (!r.ok) return
     const updated = (await r.json()) as ListingRow
     setListings((prev) => prev.map((l) => (l.id === listingId ? updated : l)))
@@ -183,27 +183,22 @@ export default function Triage() {
   const empty = !loading && listings.length === 0
 
   const renderSecondaryLine = (l: ListingRow) => {
-    const allNull = l.beds == null && l.baths == null && (l.address == null || l.address === '')
-    if (allNull) {
-      return (
-        <div data-testid={`triage-tile-secondary-${l.id}`} className="mt-0.5 text-xs text-zinc-400">
-          &nbsp;
-        </div>
-      )
-    }
-    const bedsPart = l.beds != null ? `${l.beds} bd` : '— bd'
-    const bathsPart = l.baths != null ? `${l.baths} ba` : '— ba'
-    const addrPart = l.address != null && l.address !== '' ? l.address : '—'
+    const secondaryParts: string[] = []
+    if (l.beds != null) secondaryParts.push(`${l.beds} bd`)
+    if (l.baths != null) secondaryParts.push(`${l.baths} ba`)
+    if (l.address) secondaryParts.push(l.address)
+    const secondary = secondaryParts.join(' · ')
     return (
-      <div data-testid={`triage-tile-secondary-${l.id}`} className="mt-0.5 line-clamp-2 text-xs text-zinc-400">
-        {bedsPart} · {bathsPart} · {addrPart}
+      <div data-testid={`triage-tile-secondary-${l.id}`} className="line-clamp-1 text-xs text-zinc-400">
+        {secondary || '—'}
       </div>
     )
   }
 
   const renderTriageTile = (l: ListingRow) => {
-    const showImg = l.image_url != null && !brokenThumbIds[l.id]
-    const label = l.displayName ?? l.title
+    const hasImageUrl = typeof l.image_url === 'string' && l.image_url.trim() !== ''
+    const showImg = hasImageUrl && !brokenThumbIds[l.id]
+    const displayLabel = l.displayName ?? l.title
 
     const onNicknameKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
       if (e.key === 'Escape') {
@@ -215,38 +210,45 @@ export default function Triage() {
       }
       if (e.key === 'Enter') {
         e.preventDefault()
-        void saveNickname(l.id, nicknameDraft)
+        e.currentTarget.blur()
       }
     }
 
-    const onNicknameBlur = () => {
+    const onNicknameBlur = async () => {
       if (skipBlurSaveRef.current) {
         skipBlurSaveRef.current = false
         return
       }
-      void saveNickname(l.id, nicknameDraft)
+      const next = nicknameDraft.trim()
+      const current = l.nickname ?? ''
+      if (next === current) {
+        setEditingNicknameId(null)
+        return
+      }
+      await saveNickname(l.id, next === '' ? null : next)
+      setEditingNicknameId(null)
     }
 
     return (
-      <div className="flex flex-row gap-3">
-        <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded bg-zinc-800">
-          {showImg ? (
-            <img
-              src={l.image_url!}
-              alt=""
-              data-testid="triage-tile-thumb-img"
-              className="h-full w-full object-cover"
-              onError={() => setBrokenThumbIds((prev) => ({ ...prev, [l.id]: true }))}
-            />
-          ) : (
-            <div
-              data-testid="triage-tile-thumb-placeholder"
-              className="flex h-full w-full items-center justify-center"
-            >
-              <HouseThumbPlaceholder />
-            </div>
-          )}
-        </div>
+      <div className="flex gap-3">
+        {showImg ? (
+          <img
+            src={l.image_url!}
+            alt=""
+            loading="lazy"
+            data-testid={`triage-tile-thumbnail-${l.id}`}
+            className="h-16 w-16 shrink-0 rounded object-cover bg-zinc-800"
+            onError={() => setBrokenThumbIds((prev) => ({ ...prev, [l.id]: true }))}
+          />
+        ) : (
+          <div
+            className="flex h-16 w-16 shrink-0 items-center justify-center rounded bg-zinc-800"
+            data-testid={`triage-tile-thumbnail-placeholder-${l.id}`}
+            aria-label="No thumbnail available"
+          >
+            <HouseIcon className="h-8 w-8 text-zinc-600" />
+          </div>
+        )}
         <div className="flex min-w-0 flex-1 flex-col">
           {l.hunt_id != null ? (
             <span
@@ -260,26 +262,31 @@ export default function Triage() {
             <input
               data-testid={`triage-tile-nickname-input-${l.id}`}
               autoFocus
-              className="mt-0.5 w-full rounded border border-white/15 bg-zinc-950 px-1.5 py-0.5 text-sm font-medium text-white"
+              type="text"
+              className="w-full rounded border border-white/10 bg-zinc-950 px-2 py-1 text-sm text-white"
               value={nicknameDraft}
               onChange={(e) => setNicknameDraft(e.target.value)}
               onKeyDown={onNicknameKeyDown}
-              onBlur={onNicknameBlur}
+              onBlur={() => void onNicknameBlur()}
               onClick={(e) => e.stopPropagation()}
             />
           ) : (
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-1.5">
               <span
                 data-testid={`triage-tile-displayname-${l.id}`}
                 className="line-clamp-1 text-sm font-medium text-white"
+                title={displayLabel}
+                onClick={(e) => {
+                  e.stopPropagation()
+                }}
               >
-                {label}
+                {displayLabel}
               </span>
               <button
                 type="button"
                 data-testid={`triage-tile-nickname-edit-${l.id}`}
                 aria-label="Edit nickname"
-                className="inline-flex shrink-0 rounded p-0.5 hover:bg-white/5"
+                className="rounded p-1 text-zinc-500 hover:text-zinc-300"
                 onClick={(e) => {
                   e.stopPropagation()
                   skipBlurSaveRef.current = false
@@ -287,7 +294,7 @@ export default function Triage() {
                   setNicknameDraft(l.nickname ?? '')
                 }}
               >
-                <PencilIcon />
+                <PencilIcon className="h-3.5 w-3.5" />
               </button>
             </div>
           )}

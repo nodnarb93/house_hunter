@@ -59,7 +59,7 @@ test.describe('BIZ-148 Triage mobile tabbed list', () => {
       await page.goto('/triage')
       await expect(page.getByTestId('triage-board')).toBeVisible()
 
-      for (const key of ['interested', 'contacted', 'tour_scheduled', 'rejected'] as const) {
+      for (const key of ['interested', 'contacted', 'tour_scheduled', 'walkthrough', 'rejected'] as const) {
         await expect(page.getByTestId(`triage-tab-${key}`)).toBeVisible()
       }
       await expect(page.getByTestId('triage-column-interested')).toBeHidden()
@@ -68,6 +68,7 @@ test.describe('BIZ-148 Triage mobile tabbed list', () => {
       await expect(page.getByTestId('triage-tab-interested')).toHaveText(/1/)
       await expect(page.getByTestId('triage-tab-contacted')).toHaveText(/1/)
       await expect(page.getByTestId('triage-tab-tour_scheduled')).toHaveText(/1/)
+      await expect(page.getByTestId('triage-tab-walkthrough')).toHaveText(/0/)
       await expect(page.getByTestId('triage-tab-rejected')).toHaveText(/0/)
     })
 
@@ -117,12 +118,12 @@ test.describe('BIZ-148 Triage mobile tabbed list', () => {
   test.describe('desktop viewport', () => {
     test.use({ viewport: { width: 1280, height: 800 } })
 
-    test('4-column grid visible, mobile tab strip hidden', async ({ page, request }) => {
+    test('5-column grid visible, mobile tab strip hidden', async ({ page, request }) => {
       await wipeListings(request)
       await seedBookmarkedAcrossStages(request)
 
       await page.goto('/triage')
-      for (const key of ['interested', 'contacted', 'tour_scheduled', 'rejected'] as const) {
+      for (const key of ['interested', 'contacted', 'tour_scheduled', 'walkthrough', 'rejected'] as const) {
         await expect(page.getByTestId(`triage-column-${key}`)).toBeVisible()
       }
       await expect(page.getByTestId('triage-tab-interested')).toBeHidden()
