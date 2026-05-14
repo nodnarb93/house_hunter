@@ -20,4 +20,6 @@ node scripts/qa-summarize.mjs \
   --json=qa/last-run/results.json \
   --out=qa/last-run || true
 
+rm -f qa/last-run/results.json
+
 exit "$PW_EXIT"
