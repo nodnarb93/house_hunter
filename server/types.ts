@@ -57,6 +57,14 @@ export interface Listing {
   seen: number
   bookmarked: number
   stage: string
+  nickname: string | null
+  interested_notes: string | null
+  contacted_notes: string | null
+  tour_scheduled_at: string | null
+  tour_notes: string | null
+  walkthrough_notes: string | null
+  rejection_reason: string | null
+  displayName?: string
 }
 
 export interface Env {
