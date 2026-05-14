@@ -1,9 +1,13 @@
 import { test, expect, type APIRequestContext } from '@playwright/test'
 
-const STAGE_LABELS: Record<'interested' | 'contacted' | 'tour_scheduled' | 'rejected', string> = {
+const STAGE_LABELS: Record<
+  'interested' | 'contacted' | 'tour_scheduled' | 'walkthrough' | 'rejected',
+  string
+> = {
   interested: 'Interested',
   contacted: 'Contacted',
   tour_scheduled: 'Tour Scheduled',
+  walkthrough: 'Walkthrough',
   rejected: 'Rejected',
 }
 
@@ -58,7 +62,7 @@ test.describe('BIZ-151 / BIZ-152 mobile triage tab labels', () => {
     const tablist = page.getByRole('tablist')
     await expect(tablist).toBeVisible()
 
-    await expect(tablist.locator(':scope > [role="tab"]')).toHaveCount(4)
+    await expect(tablist.locator(':scope > [role="tab"]')).toHaveCount(5)
 
     await expect
       .poll(async () =>
@@ -66,7 +70,7 @@ test.describe('BIZ-151 / BIZ-152 mobile triage tab labels', () => {
       )
       .toBeTruthy()
 
-    const keys = ['interested', 'contacted', 'tour_scheduled', 'rejected'] as const
+    const keys = ['interested', 'contacted', 'tour_scheduled', 'walkthrough', 'rejected'] as const
 
     for (const key of keys) {
       const tab = page.getByTestId(`triage-tab-${key}`)
