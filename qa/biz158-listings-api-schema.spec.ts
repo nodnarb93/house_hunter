@@ -7,6 +7,9 @@ async function wipeListings(request: APIRequestContext) {
   expect(res.status()).toBe(204)
 }
 
+/** Tracks hunts/scrapers created by this file so the sidebar HuntList does not grow across the full Playwright run. */
+const biz158Seeds: { listingId: number; huntId: number; scraperId: number }[] = []
+
 async function createRssScraper(request: APIRequestContext) {
   const res = await request.post('/api/scrapers', {
     data: { url: `https://example.invalid/biz158-feed-${Date.now()}.xml` },
@@ -34,6 +37,7 @@ async function seedBookmarkedListing(request: APIRequestContext, title: string) 
   const { id } = (await seed.json()) as { id: number }
   const patch = await request.patch(`/api/listings/${id}`, { data: { bookmarked: 1 } })
   expect(patch.status()).toBe(200)
+  biz158Seeds.push({ listingId: id, huntId, scraperId })
   return { id, title }
 }
 
@@ -54,6 +58,15 @@ type ListingJson = {
 test.describe('BIZ-158 / BIZ-159 listings triage schema API', () => {
   test.beforeEach(async ({ request }) => {
     await wipeListings(request)
+  })
+
+  test.afterEach(async ({ request }) => {
+    while (biz158Seeds.length > 0) {
+      const { listingId, huntId, scraperId } = biz158Seeds.pop()!
+      await request.delete(`/api/test/listings/${listingId}`).catch(() => {})
+      await request.delete(`/api/house-hunts/${huntId}`).catch(() => {})
+      await request.delete(`/api/scrapers/${scraperId}`).catch(() => {})
+    }
   })
 
   test('0014 migration adds triage columns (pragma)', async ({ request }) => {
