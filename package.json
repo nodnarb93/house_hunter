@@ -15,6 +15,7 @@
     "restore:biz140": "tsx scripts/biz140-rehydrate-no-mls-redfin.ts",
     "test": "playwright test",
     "test:list": "playwright test --reporter=list",
+    "test:qa": "bash scripts/qa-test.sh",
     "pm2:start": "pm2 start ecosystem.config.cjs",
     "pm2:stop": "pm2 stop house-hunter",
     "pm2:logs": "pm2 logs house-hunter",
