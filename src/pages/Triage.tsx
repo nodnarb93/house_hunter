@@ -8,7 +8,8 @@ import {
   type KeyboardEvent,
 } from 'react'
 import type { HouseHunt } from '../api'
-import { getHouseHunts } from '../api'
+import { getHouseHunts, getListingImageUrls } from '../api'
+import { Lightbox } from '../components/Lightbox'
 import ListingDetailModal, { type ListingDetailModalListing } from '../components/ListingDetailModal'
 
 const STAGES = [
@@ -76,6 +77,25 @@ function formatScrapedDate(iso: string): string {
   }
 }
 
+function ExternalLinkIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden
+    >
+      <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+      <polyline points="15 3 21 3 21 9" />
+      <line x1="10" y1="14" x2="21" y2="3" />
+    </svg>
+  )
+}
+
 function PencilIcon() {
   return (
     <svg
@@ -120,7 +140,10 @@ export default function Triage() {
   const [nicknameDraft, setNicknameDraft] = useState('')
   const [brokenThumbIds, setBrokenThumbIds] = useState<Record<number, true>>({})
   const skipBlurSaveRef = useRef(false)
+  const thumbLoadInFlightRef = useRef(new Set<number>())
   const [detailListingId, setDetailListingId] = useState<number | null>(null)
+  const [lightbox, setLightbox] = useState<{ index: number; imageUrls: string[] } | null>(null)
+  const [loadingThumbId, setLoadingThumbId] = useState<number | null>(null)
 
   const huntMap = useMemo(() => new Map(hunts.map((h) => [h.id, h.name])), [hunts])
 
@@ -229,6 +252,20 @@ export default function Triage() {
     )
   }
 
+  const listingFooterAnchor = (l: ListingRow) => (
+    <a
+      href={l.link}
+      target="_blank"
+      rel="noopener noreferrer"
+      data-testid={`triage-tile-listing-link-${l.id}`}
+      className="inline-flex shrink-0 items-center gap-1.5 rounded-md bg-sky-600 px-2.5 py-1 text-xs font-medium text-white hover:bg-sky-500"
+      onClick={(e) => e.stopPropagation()}
+    >
+      Listing
+      <ExternalLinkIcon className="h-3.5 w-3.5 shrink-0" />
+    </a>
+  )
+
   const renderTriageTile = (l: ListingRow) => {
     const showImg = l.image_url != null && !brokenThumbIds[l.id]
     const label = l.displayName ?? l.title
@@ -255,11 +292,27 @@ export default function Triage() {
       void saveNickname(l.id, nicknameDraft)
     }
 
+    const onThumbActivate = () => {
+      if (thumbLoadInFlightRef.current.has(l.id)) return
+      thumbLoadInFlightRef.current.add(l.id)
+      setLoadingThumbId(l.id)
+      void getListingImageUrls(l.id)
+        .then((urls) => {
+          if (urls.length >= 1) setLightbox({ index: 0, imageUrls: urls })
+        })
+        .catch(() => {
+          // silent: no lightbox
+        })
+        .finally(() => {
+          thumbLoadInFlightRef.current.delete(l.id)
+          setLoadingThumbId((cur) => (cur === l.id ? null : cur))
+        })
+    }
+
     return (
       <div
-        className="flex cursor-pointer flex-row gap-3"
+        className="flex cursor-pointer flex-row gap-3 rounded outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-900"
         data-testid={`triage-tile-${l.id}`}
-        role="button"
         tabIndex={0}
         onClick={() => setDetailListingId(l.id)}
         onKeyDown={(e) => {
@@ -269,13 +322,23 @@ export default function Triage() {
           setDetailListingId(l.id)
         }}
       >
-        <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded bg-zinc-800">
+        <button
+          type="button"
+          data-testid={`triage-tile-thumb-trigger-${l.id}`}
+          aria-label="View photos"
+          className={`relative h-16 w-16 shrink-0 overflow-hidden rounded bg-zinc-800 text-left outline-none ring-offset-2 ring-offset-zinc-900 focus-visible:ring-2 focus-visible:ring-sky-500 ${loadingThumbId === l.id ? 'opacity-60' : ''}`}
+          onClick={(e) => {
+            e.stopPropagation()
+            onThumbActivate()
+          }}
+        >
           {showImg ? (
             <img
               src={l.image_url!}
               alt=""
               data-testid="triage-tile-thumb-img"
               className="h-full w-full object-cover"
+              draggable={false}
               onError={() => setBrokenThumbIds((prev) => ({ ...prev, [l.id]: true }))}
             />
           ) : (
@@ -286,7 +349,7 @@ export default function Triage() {
               <HouseThumbPlaceholder />
             </div>
           )}
-        </div>
+        </button>
         <div className="flex min-w-0 flex-1 flex-col">
           {l.hunt_id != null ? (
             <div className="mb-1 flex flex-wrap items-center gap-2 self-start">
@@ -417,24 +480,27 @@ export default function Triage() {
                       className="flex flex-col rounded-md border border-white/10 bg-zinc-900 px-3 py-2"
                     >
                       {renderTriageTile(l)}
-                      <label
-                        className="mt-2 text-[10px] font-medium uppercase tracking-wide text-zinc-500"
+                      <div
+                        className="mt-2 flex items-center justify-between gap-2"
                         onClick={(e) => e.stopPropagation()}
                       >
-                        Stage
-                        <select
-                          data-testid={`triage-mobile-stage-select-${l.id}`}
-                          className="mt-1 w-full rounded border border-white/10 bg-zinc-950 px-2 py-1.5 text-xs text-white"
-                          value={STAGES.some((s) => s.key === l.stage) ? l.stage : 'interested'}
-                          onChange={(e) => void moveToStage(l.id, e.target.value)}
-                        >
-                          {STAGES.map((s) => (
-                            <option key={s.key} value={s.key}>
-                              {s.label}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
+                        {listingFooterAnchor(l)}
+                        <label className="flex min-w-0 flex-col items-end text-[10px] font-medium uppercase tracking-wide text-zinc-500">
+                          <span className="text-right">Stage</span>
+                          <select
+                            data-testid={`triage-mobile-stage-select-${l.id}`}
+                            className="mt-1 w-auto max-w-[min(100%,11rem)] rounded border border-white/10 bg-zinc-950 px-2 py-1.5 text-xs text-white"
+                            value={STAGES.some((s) => s.key === l.stage) ? l.stage : 'interested'}
+                            onChange={(e) => void moveToStage(l.id, e.target.value)}
+                          >
+                            {STAGES.map((s) => (
+                              <option key={s.key} value={s.key}>
+                                {s.label}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -464,6 +530,12 @@ export default function Triage() {
                           className="flex cursor-grab flex-col rounded-md border border-white/10 bg-zinc-900 px-3 py-2 active:cursor-grabbing"
                         >
                           {renderTriageTile(l)}
+                          <div
+                            className="mt-2 flex items-center justify-end"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            {listingFooterAnchor(l)}
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -482,6 +554,13 @@ export default function Triage() {
           setListings((prev) => prev.map((row) => (row.id === updated.id ? { ...row, ...updated } : row)))
         }}
       />
+      {lightbox ? (
+        <Lightbox
+          imageUrls={lightbox.imageUrls}
+          initialIndex={lightbox.index}
+          onClose={() => setLightbox(null)}
+        />
+      ) : null}
     </div>
   )
 }
