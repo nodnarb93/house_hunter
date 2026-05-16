@@ -225,3 +225,125 @@ test.describe('BIZ-191 GET /api/dashboard', () => {
     expect(failScraper!.lastError).toContain('fetch timeout')
   })
 })
+
+test.describe('BIZ-277 dashboard health coherence', () => {
+  test.beforeEach(async ({ request }) => {
+    seeds.listingIds = []
+    seeds.huntIds = []
+    seeds.scraperIds = []
+    await wipeListings(request)
+  })
+
+  test.afterEach(async ({ request }) => {
+    while (seeds.listingIds.length > 0) {
+      const id = seeds.listingIds.pop()!
+      await request.delete(`/api/test/listings/${id}`).catch(() => {})
+    }
+    while (seeds.huntIds.length > 0) {
+      const id = seeds.huntIds.pop()!
+      await request.delete(`/api/house-hunts/${id}`).catch(() => {})
+    }
+    while (seeds.scraperIds.length > 0) {
+      const id = seeds.scraperIds.pop()!
+      await request.delete(`/api/scrapers/${id}`).catch(() => {})
+    }
+  })
+
+  test('lastSuccessfulScrapeAt falls back to listings.scraped_at when runs table is empty', async ({
+    request,
+  }) => {
+    const scraperId = await createScraper(request, `https://example.invalid/biz277-ac1-${Date.now()}.xml`)
+    const huntId = await createHunt(request, `BIZ277 AC1 ${Date.now()}`)
+    const scrapedAt = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString()
+
+    await seedListing(request, {
+      title: 'BIZ277 AC1 listing',
+      huntId,
+      scraperId,
+      scraped_at: scrapedAt,
+    })
+
+    const res = await request.get('/api/dashboard')
+    expect(res.status()).toBe(200)
+    const body = (await res.json()) as DashboardJson
+
+    expect(body.health.lastSuccessfulScrapeAt).not.toBeNull()
+    expect(new Date(body.health.lastSuccessfulScrapeAt!).getTime()).toBe(new Date(scrapedAt).getTime())
+  })
+
+  test('lastSuccessfulScrapeAt falls back to listings.scraped_at when all runs have errors', async ({
+    request,
+  }) => {
+    const scraperId = await createScraper(request, `https://example.invalid/biz277-ac2-${Date.now()}.xml`)
+    const huntId = await createHunt(request, `BIZ277 AC2 ${Date.now()}`)
+    const scrapedAt = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString()
+
+    await seedListing(request, {
+      title: 'BIZ277 AC2 listing',
+      huntId,
+      scraperId,
+      scraped_at: scrapedAt,
+    })
+
+    const db = await openTestDb(request)
+    try {
+      const row = db.prepare('SELECT url FROM scraper_sources WHERE id = ?').get(scraperId) as { url: string }
+      insertRun(db, {
+        feedUrl: row.url,
+        finishedAt: new Date().toISOString(),
+        resultSummary: JSON.stringify({ error: 'fetch timeout' }),
+      })
+    } finally {
+      db.close()
+    }
+
+    const res = await request.get('/api/dashboard')
+    expect(res.status()).toBe(200)
+    const body = (await res.json()) as DashboardJson
+
+    expect(new Date(body.health.lastSuccessfulScrapeAt!).getTime()).toBe(new Date(scrapedAt).getTime())
+  })
+
+  test('lastSuccessfulScrapeAt is null when neither runs nor listings exist', async ({ request }) => {
+    const res = await request.get('/api/dashboard')
+    expect(res.status()).toBe(200)
+    const body = (await res.json()) as DashboardJson
+
+    expect(body.health.lastSuccessfulScrapeAt).toBeNull()
+  })
+
+  test('lastSuccessfulScrapeAt prefers later of run.finished_at and MAX(listings.scraped_at)', async ({
+    request,
+  }) => {
+    const scraperId = await createScraper(request, `https://example.invalid/biz277-ac4-${Date.now()}.xml`)
+    const huntId = await createHunt(request, `BIZ277 AC4 ${Date.now()}`)
+    const now = Date.now()
+    const listingScrapedAt = new Date(now - 30 * 60 * 1000).toISOString()
+    const runFinishedAt = new Date(now - 2 * 60 * 60 * 1000).toISOString()
+
+    await seedListing(request, {
+      title: 'BIZ277 AC4 listing',
+      huntId,
+      scraperId,
+      scraped_at: listingScrapedAt,
+    })
+
+    const db = await openTestDb(request)
+    try {
+      const row = db.prepare('SELECT url FROM scraper_sources WHERE id = ?').get(scraperId) as { url: string }
+      insertRun(db, {
+        feedUrl: row.url,
+        finishedAt: runFinishedAt,
+        resultSummary: JSON.stringify([{ title: 'ok', link: 'https://example.invalid/x' }]),
+      })
+    } finally {
+      db.close()
+    }
+
+    const res = await request.get('/api/dashboard')
+    expect(res.status()).toBe(200)
+    const body = (await res.json()) as DashboardJson
+
+    expect(new Date(body.health.lastSuccessfulScrapeAt!).getTime()).toBe(new Date(listingScrapedAt).getTime())
+  })
+})
