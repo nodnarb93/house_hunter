@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { Routes, Route, Navigate, NavLink, useLocation } from 'react-router-dom'
 import type { HouseHunt } from './api'
 import { getHouseHunts } from './api'
+import Dashboard from './pages/Dashboard'
 import Scrapers from './pages/Scrapers'
 import Settings from './pages/Settings'
 import Runs from './pages/Runs'
@@ -145,6 +146,13 @@ export default function App() {
           </button>
         </div>
 
+        <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-zinc-500">Overview</div>
+        <nav className="mb-4 flex flex-col gap-1" aria-label="Overview">
+          <NavLink to="/dashboard" className={pipelineNavClass} data-testid="sidebar-dashboard-link">
+            Dashboard
+          </NavLink>
+        </nav>
+
         <HuntList
           hunts={hunts}
           loading={huntsLoading}
@@ -208,7 +216,8 @@ export default function App() {
         </div>
 
         <Routes>
-          <Route path="/" element={<Navigate to="/scrapers" replace />} />
+          <Route path="/" element={<Navigate to="/dashboard" replace />} />
+          <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/scrapers" element={<Scrapers />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="/runs" element={<Runs />} />
