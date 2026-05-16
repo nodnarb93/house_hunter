@@ -152,6 +152,55 @@ export async function getRuns(limit = 20): Promise<RunRow[]> {
   return r.json()
 }
 
+export interface DashboardListing {
+  id: number
+  link: string
+  title: string
+  address: string | null
+  price_cents: number | null
+  beds: number | null
+  baths: number | null
+  image_url: string | null
+  scraped_at: string
+  seen: 0 | 1
+}
+
+export type DashboardActionQueueItem =
+  | {
+      id: number
+      stage: 'interested'
+      title: string
+      address: string | null
+      stageChangedAt: string
+    }
+  | {
+      id: number
+      stage: 'tour_scheduled'
+      title: string
+      address: string | null
+      tourScheduledAt: string
+    }
+
+export interface DashboardResponse {
+  hunts: Array<{
+    id: number
+    name: string
+    listings: DashboardListing[]
+  }>
+  actionQueue: DashboardActionQueueItem[]
+  health: {
+    lastSuccessfulScrapeAt: string | null
+    newListingsLast24h: number
+    failingScrapers: Array<{ id: number; name: string; lastError: string }>
+  }
+}
+
+export async function getDashboard(): Promise<DashboardResponse> {
+  const r = await fetch(`${API}/dashboard`)
+  if (!r.ok) throw new Error(await r.text())
+  return r.json()
+}
+
 export interface ScraperSource {
   id: number
   kind: string

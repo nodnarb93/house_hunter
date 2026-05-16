@@ -7,6 +7,7 @@ import {
   type DragEvent,
   type KeyboardEvent,
 } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import type { HouseHunt } from '../api'
 import { getHouseHunts, getListingImageUrls } from '../api'
 import { Lightbox } from '../components/Lightbox'
@@ -132,6 +133,7 @@ function HouseThumbPlaceholder() {
 }
 
 export default function Triage() {
+  const [searchParams, setSearchParams] = useSearchParams()
   const [listings, setListings] = useState<ListingRow[]>([])
   const [hunts, setHunts] = useState<HouseHunt[]>([])
   const [loading, setLoading] = useState(true)
@@ -166,6 +168,34 @@ export default function Triage() {
   useEffect(() => {
     void load()
   }, [load])
+
+  useEffect(() => {
+    const raw = searchParams.get('listing')
+    if (!raw) return
+    const id = Number.parseInt(raw, 10)
+    if (!Number.isFinite(id)) return
+
+    const found = listings.find((l) => l.id === id)
+    if (found) {
+      setDetailListingId(id)
+      return
+    }
+    if (loading) return
+
+    let cancelled = false
+    void (async () => {
+      const r = await fetch('/api/listings?limit=500')
+      if (!r.ok || cancelled) return
+      const data = (await r.json()) as { listings: ListingRow[] }
+      const row = data.listings.find((l) => l.id === id)
+      if (!row || cancelled) return
+      setListings((prev) => (prev.some((l) => l.id === id) ? prev : [...prev, row]))
+      setDetailListingId(id)
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [searchParams, listings, loading])
 
   useEffect(() => {
     const prev = document.title
@@ -549,7 +579,14 @@ export default function Triage() {
       <ListingDetailModal
         open={detailListing !== null}
         listing={detailListing}
-        onClose={() => setDetailListingId(null)}
+        onClose={() => {
+          setDetailListingId(null)
+          if (searchParams.has('listing')) {
+            const next = new URLSearchParams(searchParams)
+            next.delete('listing')
+            setSearchParams(next, { replace: true })
+          }
+        }}
         onPatched={(updated) => {
           setListings((prev) => prev.map((row) => (row.id === updated.id ? { ...row, ...updated } : row)))
         }}
