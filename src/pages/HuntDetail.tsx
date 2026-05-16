@@ -227,10 +227,14 @@ export default function HuntDetail() {
     setBusy(true)
     setError(null)
     try {
+      const body: Record<string, unknown> = { bookmarked: next }
+      if (next === 1) {
+        body.hunt_id = huntId
+      }
       const res = await fetch(`/api/listings/${r.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ bookmarked: next }),
+        body: JSON.stringify(body),
       })
       if (!res.ok) {
         setError(await res.text())
