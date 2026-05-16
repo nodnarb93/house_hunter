@@ -23,6 +23,15 @@ async function wipeListings(request: APIRequestContext) {
   expect(res.status()).toBe(204)
 }
 
+async function wipeRuns(request: APIRequestContext) {
+  const db = await openTestDb(request)
+  try {
+    db.prepare('DELETE FROM runs').run()
+  } finally {
+    db.close()
+  }
+}
+
 async function createHunt(request: APIRequestContext, name: string) {
   const res = await request.post('/api/house-hunts', { data: { name } })
   expect(res.status()).toBe(201)
@@ -116,6 +125,7 @@ test.describe('BIZ-191 GET /api/dashboard', () => {
       const id = seeds.scraperIds.pop()!
       await request.delete(`/api/scrapers/${id}`).catch(() => {})
     }
+    await wipeRuns(request)
   })
 
   test('returns hunts, action queue, and health aggregates', async ({ request }) => {
@@ -232,6 +242,7 @@ test.describe('BIZ-277 dashboard health coherence', () => {
     seeds.huntIds = []
     seeds.scraperIds = []
     await wipeListings(request)
+    await wipeRuns(request)
   })
 
   test.afterEach(async ({ request }) => {
@@ -247,6 +258,7 @@ test.describe('BIZ-277 dashboard health coherence', () => {
       const id = seeds.scraperIds.pop()!
       await request.delete(`/api/scrapers/${id}`).catch(() => {})
     }
+    await wipeRuns(request)
   })
 
   test('lastSuccessfulScrapeAt falls back to listings.scraped_at when runs table is empty', async ({
