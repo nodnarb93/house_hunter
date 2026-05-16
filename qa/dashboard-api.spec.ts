@@ -193,9 +193,9 @@ test.describe('BIZ-191 GET /api/dashboard', () => {
     expect(res.status()).toBe(200)
     const body = (await res.json()) as DashboardJson
 
-    const responseHuntIds = body.hunts.map((h) => h.id)
+    const returnedIds = new Set(body.hunts.map((h) => h.id))
     for (const id of [huntUnseen, huntSeenOnly, huntEmpty]) {
-      expect(responseHuntIds).toContain(id)
+      expect(returnedIds.has(id)).toBe(true)
     }
 
     const unseenHunt = body.hunts.find((h) => h.id === huntUnseen)!
