@@ -172,6 +172,9 @@ export type DashboardActionQueueItem =
       title: string
       address: string | null
       stageChangedAt: string
+      image_url: string | null
+      hunt_id: number | null
+      hunt_name: string | null
     }
   | {
       id: number
@@ -179,6 +182,9 @@ export type DashboardActionQueueItem =
       title: string
       address: string | null
       tourScheduledAt: string
+      image_url: string | null
+      hunt_id: number | null
+      hunt_name: string | null
     }
 
 export interface DashboardResponse {

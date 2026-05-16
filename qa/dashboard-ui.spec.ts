@@ -214,4 +214,114 @@ test.describe('BIZ-276 dashboard UI', () => {
     })
     expect(scrollable).toBe(true)
   })
+
+  test('action row shows thumbnail and hunt badge', async ({ page, request }) => {
+    const scraperId = await createScraper(request, `https://example.invalid/biz286b-thumb-${Date.now()}.xml`)
+    const huntName = `BIZ286b hunt ${Date.now()}`
+    const huntId = await createHunt(request, huntName)
+    const tourInThreeDays = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString().slice(0, 16)
+    const listingId = await seedListing(request, {
+      title: 'BIZ286b tour with hunt',
+      huntId,
+      scraperId,
+      stage: 'tour_scheduled',
+      tour_scheduled_at: tourInThreeDays,
+    })
+
+    await page.goto('/dashboard')
+    await waitForDashboard(page)
+
+    const row = page.getByTestId(`dashboard-action-row-${listingId}`)
+    await expect(row).toBeVisible()
+    const thumb = row.locator('img, [data-testid="triage-tile-thumb-placeholder"]')
+    await expect(thumb.first()).toBeVisible()
+    await expect(row.getByTestId('hunt-name-badge')).toHaveText(huntName)
+  })
+
+  test('action row omits hunt badge when hunt_name is null', async ({ page, request }) => {
+    const scraperId = await createScraper(request, `https://example.invalid/biz286b-nobadge-${Date.now()}.xml`)
+    const huntId = await createHunt(request, `BIZ286b unused hunt ${Date.now()}`)
+    const eightDaysAgo = new Date(Date.now() - 8 * 24 * 60 * 60 * 1000).toISOString()
+    const listingId = await seedListing(request, {
+      title: 'BIZ286b stale no hunt',
+      huntId,
+      scraperId,
+      scraped_at: eightDaysAgo,
+      stage: 'interested',
+    })
+
+    const db = await openTestDb(request)
+    try {
+      db.prepare('UPDATE listings SET hunt_id = NULL WHERE id = ?').run(listingId)
+    } finally {
+      db.close()
+    }
+
+    await page.goto('/dashboard')
+    await waitForDashboard(page)
+
+    const row = page.getByTestId(`dashboard-action-row-${listingId}`)
+    await expect(row).toBeVisible()
+    await expect(row.getByTestId('hunt-name-badge')).toHaveCount(0)
+  })
+
+  test('action row labels use reach-out and tour wording', async ({ page, request }) => {
+    const scraperId = await createScraper(request, `https://example.invalid/biz286b-labels-${Date.now()}.xml`)
+    const huntId = await createHunt(request, `BIZ286b labels ${Date.now()}`)
+    const eightDaysAgo = new Date(Date.now() - 8 * 24 * 60 * 60 * 1000).toISOString()
+    const tourInThreeDays = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString().slice(0, 16)
+
+    const staleId = await seedListing(request, {
+      title: 'BIZ286b stale interested',
+      huntId,
+      scraperId,
+      scraped_at: eightDaysAgo,
+      stage: 'interested',
+    })
+    const tourId = await seedListing(request, {
+      title: 'BIZ286b upcoming tour',
+      huntId,
+      scraperId,
+      stage: 'tour_scheduled',
+      tour_scheduled_at: tourInThreeDays,
+    })
+
+    await page.goto('/dashboard')
+    await waitForDashboard(page)
+
+    const staleRow = page.getByTestId(`dashboard-action-row-${staleId}`)
+    await expect(staleRow).toContainText(/Reach out — (saved \d+d ago|saved today)/)
+
+    const tourRow = page.getByTestId(`dashboard-action-row-${tourId}`)
+    await expect(tourRow.locator('.text-zinc-500')).toContainText(/^Tour /)
+  })
+
+  test('visibilitychange refetch removes resolved action rows', async ({ page, request }) => {
+    const scraperId = await createScraper(request, `https://example.invalid/biz286b-refetch-${Date.now()}.xml`)
+    const huntId = await createHunt(request, `BIZ286b refetch ${Date.now()}`)
+    const eightDaysAgo = new Date(Date.now() - 8 * 24 * 60 * 60 * 1000).toISOString()
+    const listingId = await seedListing(request, {
+      title: 'BIZ286b stale for refetch',
+      huntId,
+      scraperId,
+      scraped_at: eightDaysAgo,
+      stage: 'interested',
+    })
+
+    await page.goto('/dashboard')
+    await waitForDashboard(page)
+    await expect(page.getByTestId(`dashboard-action-row-${listingId}`)).toBeVisible()
+
+    const patch = await request.patch(`/api/listings/${listingId}`, { data: { stage: 'rejected' } })
+    expect(patch.status()).toBe(200)
+
+    await page.evaluate(() => {
+      Object.defineProperty(document, 'visibilityState', { value: 'visible', configurable: true })
+      document.dispatchEvent(new Event('visibilitychange'))
+    })
+
+    await expect(page.getByTestId(`dashboard-action-row-${listingId}`)).toHaveCount(0, {
+      timeout: 10_000,
+    })
+  })
 })

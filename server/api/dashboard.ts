@@ -31,6 +31,9 @@ interface ActionInterestedRow {
   title: string
   address: string | null
   scraped_at: string
+  image_url: string | null
+  hunt_id: number | null
+  hunt_name: string | null
 }
 
 interface ActionTourRow {
@@ -39,6 +42,9 @@ interface ActionTourRow {
   title: string
   address: string | null
   tour_scheduled_at: string
+  image_url: string | null
+  hunt_id: number | null
+  hunt_name: string | null
 }
 
 interface ScraperRow {
@@ -120,11 +126,15 @@ async function loadActionQueue(env: Env) {
   // No stage_changed_at on listings; scraped_at proxies time-in-stage for default-interested rows.
   const interestedRows = await env.DB
     .prepare(
-      `SELECT id, stage, title, address, scraped_at
-       FROM listings
-       WHERE stage = 'interested'
-         AND datetime(scraped_at) <= datetime('now', ?)
-       ORDER BY scraped_at ASC
+      `SELECT l.id, l.stage, l.title, l.address, l.scraped_at,
+              COALESCE(l.image_url, (SELECT url FROM listing_image_urls WHERE listing_id = l.id ORDER BY display_order ASC LIMIT 1)) AS image_url,
+              l.hunt_id,
+              h.name AS hunt_name
+       FROM listings l
+       LEFT JOIN house_hunts h ON h.id = l.hunt_id
+       WHERE l.stage = 'interested'
+         AND datetime(l.scraped_at) <= datetime('now', ?)
+       ORDER BY l.scraped_at ASC
        LIMIT ?`
     )
     .bind(`-${STALE_INTERESTED_DAYS} days`, ACTION_QUEUE_LIMIT)
@@ -132,13 +142,17 @@ async function loadActionQueue(env: Env) {
 
   const tourRows = await env.DB
     .prepare(
-      `SELECT id, stage, title, address, tour_scheduled_at
-       FROM listings
-       WHERE stage = 'tour_scheduled'
-         AND tour_scheduled_at IS NOT NULL
-         AND datetime(tour_scheduled_at) >= datetime('now')
-         AND datetime(tour_scheduled_at) <= datetime('now', ?)
-       ORDER BY tour_scheduled_at ASC
+      `SELECT l.id, l.stage, l.title, l.address, l.tour_scheduled_at,
+              COALESCE(l.image_url, (SELECT url FROM listing_image_urls WHERE listing_id = l.id ORDER BY display_order ASC LIMIT 1)) AS image_url,
+              l.hunt_id,
+              h.name AS hunt_name
+       FROM listings l
+       LEFT JOIN house_hunts h ON h.id = l.hunt_id
+       WHERE l.stage = 'tour_scheduled'
+         AND l.tour_scheduled_at IS NOT NULL
+         AND datetime(l.tour_scheduled_at) >= datetime('now')
+         AND datetime(l.tour_scheduled_at) <= datetime('now', ?)
+       ORDER BY l.tour_scheduled_at ASC
        LIMIT ?`
     )
     .bind(`+${UPCOMING_TOUR_DAYS} days`, ACTION_QUEUE_LIMIT)
@@ -157,6 +171,9 @@ async function loadActionQueue(env: Env) {
         title: row.title,
         address: row.address,
         stageChangedAt: row.scraped_at,
+        image_url: row.image_url,
+        hunt_id: row.hunt_id,
+        hunt_name: row.hunt_name,
       },
     })
   }
@@ -170,6 +187,9 @@ async function loadActionQueue(env: Env) {
         title: row.title,
         address: row.address,
         tourScheduledAt: row.tour_scheduled_at,
+        image_url: row.image_url,
+        hunt_id: row.hunt_id,
+        hunt_name: row.hunt_name,
       },
     })
   }
