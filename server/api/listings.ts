@@ -150,6 +150,16 @@ export async function handleListings(request: Request, env: Env): Promise<Respon
       updates.push('stage = ?')
       values.push(body.stage)
     }
+    if ('hunt_id' in body) {
+      if (body.hunt_id === null) {
+        // no-op — do not clear hunt_id on null
+      } else if (typeof body.hunt_id === 'number' && Number.isInteger(body.hunt_id) && body.hunt_id > 0) {
+        updates.push('hunt_id = ?')
+        values.push(body.hunt_id)
+      } else {
+        return Response.json({ error: 'Invalid hunt_id' }, { status: 400 })
+      }
+    }
 
     for (const key of NULLABLE_STRING_PATCH_KEYS) {
       if (!(key in body)) continue
