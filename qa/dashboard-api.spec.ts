@@ -4,7 +4,15 @@ import { test, expect, type APIRequestContext } from '@playwright/test'
 
 type DashboardJson = {
   hunts: { id: number; name: string; listings: { id: number; seen: number }[] }[]
-  actionQueue: { id: number; stage: string; stageChangedAt?: string; tourScheduledAt?: string }[]
+  actionQueue: {
+    id: number
+    stage: string
+    stageChangedAt?: string
+    tourScheduledAt?: string
+    image_url: string | null
+    hunt_id: number | null
+    hunt_name: string | null
+  }[]
   health: {
     lastSuccessfulScrapeAt: string | null
     newListingsLast24h: number
@@ -132,8 +140,10 @@ test.describe('BIZ-191 GET /api/dashboard', () => {
     const scraperOk = await createScraper(request, `https://example.invalid/dashboard-ok-${Date.now()}.xml`)
     const scraperFail = await createScraper(request, `https://example.invalid/dashboard-fail-${Date.now()}.xml`)
 
-    const huntUnseen = await createHunt(request, `BIZ191 unseen ${Date.now()}`)
-    const huntSeenOnly = await createHunt(request, `BIZ191 seen ${Date.now()}`)
+    const huntUnseenName = `BIZ191 unseen ${Date.now()}`
+    const huntSeenOnlyName = `BIZ191 seen ${Date.now()}`
+    const huntUnseen = await createHunt(request, huntUnseenName)
+    const huntSeenOnly = await createHunt(request, huntSeenOnlyName)
     const huntEmpty = await createHunt(request, `BIZ191 empty ${Date.now()}`)
 
     const now = Date.now()
@@ -226,6 +236,20 @@ test.describe('BIZ-191 GET /api/dashboard', () => {
     const queueIds = body.actionQueue.map((q) => q.id)
     expect(queueIds).toContain(staleInterestedId)
     expect(queueIds).toContain(upcomingTourId)
+
+    const staleRow = body.actionQueue.find((q) => q.id === staleInterestedId)!
+    expect(staleRow).toMatchObject({
+      hunt_id: huntUnseen,
+      hunt_name: huntUnseenName,
+    })
+    expect(staleRow).toHaveProperty('image_url')
+
+    const tourRow = body.actionQueue.find((q) => q.id === upcomingTourId)!
+    expect(tourRow).toMatchObject({
+      hunt_id: huntSeenOnly,
+      hunt_name: huntSeenOnlyName,
+    })
+    expect(tourRow).toHaveProperty('image_url')
 
     expect(body.health.newListingsLast24h).toBeGreaterThanOrEqual(1)
     expect(body.health.lastSuccessfulScrapeAt).not.toBeNull()

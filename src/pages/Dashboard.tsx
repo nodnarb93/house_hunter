@@ -42,9 +42,22 @@ function formatRelative(iso: string): string {
   }
 }
 
-function formatDateTime(iso: string): string {
+function formatTourTime(iso: string): string {
   try {
-    return new Date(iso).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })
+    const d = new Date(iso)
+    if (Number.isNaN(d.getTime())) return iso
+    const now = Date.now()
+    const diffMs = d.getTime() - now
+    const within7Days = diffMs >= 0 && diffMs <= 7 * 86_400_000
+    const timePart = d
+      .toLocaleString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })
+      .toLowerCase()
+    if (within7Days) {
+      const weekday = d.toLocaleString('en-US', { weekday: 'long' })
+      return `${weekday} at ${timePart}`
+    }
+    const datePart = d.toLocaleString('en-US', { month: 'short', day: 'numeric' })
+    return `${datePart} at ${timePart}`
   } catch {
     return iso
   }
@@ -76,9 +89,11 @@ async function fetchListingForModal(id: number): Promise<ListingDetailModalListi
 
 function actionRowLabel(item: DashboardActionQueueItem): string {
   if (item.stage === 'interested') {
-    return `Stale interested (since ${formatScrapedDate(item.stageChangedAt)})`
+    const days = Math.floor((Date.now() - new Date(item.stageChangedAt).getTime()) / 86_400_000)
+    if (days < 1) return 'Reach out — saved today'
+    return `Reach out — saved ${days}d ago`
   }
-  return `Tour ${formatDateTime(item.tourScheduledAt)}`
+  return `Tour ${formatTourTime(item.tourScheduledAt)}`
 }
 
 export default function Dashboard() {
@@ -88,6 +103,7 @@ export default function Dashboard() {
   const [error, setError] = useState('')
   const [detailListing, setDetailListing] = useState<ListingDetailModalListing | null>(null)
   const [brokenThumbIds, setBrokenThumbIds] = useState<Record<number, true>>({})
+  const [brokenActionThumbIds, setBrokenActionThumbIds] = useState<Record<number, true>>({})
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -104,6 +120,18 @@ export default function Dashboard() {
 
   useEffect(() => {
     void load()
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') void load()
+    }
+    const onFocus = () => {
+      void load()
+    }
+    document.addEventListener('visibilitychange', onVisible)
+    window.addEventListener('focus', onFocus)
+    return () => {
+      document.removeEventListener('visibilitychange', onVisible)
+      window.removeEventListener('focus', onFocus)
+    }
   }, [load])
 
   useEffect(() => {
@@ -188,11 +216,40 @@ export default function Dashboard() {
                   type="button"
                   data-testid={`dashboard-action-row-${item.id}`}
                   onClick={() => navigate(`/triage?listing=${item.id}`)}
-                  className="w-full rounded-md border border-white/10 bg-zinc-900 px-3 py-2 text-left hover:bg-zinc-800"
+                  className="flex w-full gap-3 rounded-md border border-white/10 bg-zinc-900 p-2 text-left hover:bg-zinc-800"
                 >
-                  <div className="text-sm font-medium text-white">{item.title}</div>
-                  {item.address ? <div className="text-xs text-zinc-400">{item.address}</div> : null}
-                  <div className="mt-1 text-xs text-zinc-500">{actionRowLabel(item)}</div>
+                  <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded bg-zinc-800">
+                    {item.image_url && !brokenActionThumbIds[item.id] ? (
+                      <img
+                        src={item.image_url}
+                        alt=""
+                        className="h-full w-full object-cover"
+                        onError={() =>
+                          setBrokenActionThumbIds((prev) => ({ ...prev, [item.id]: true }))
+                        }
+                      />
+                    ) : (
+                      <div
+                        data-testid="triage-tile-thumb-placeholder"
+                        className="flex h-full w-full items-center justify-center"
+                      >
+                        <HouseThumbPlaceholder />
+                      </div>
+                    )}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    {item.hunt_name ? (
+                      <span
+                        data-testid="hunt-name-badge"
+                        className="mb-1 inline-block rounded-full bg-zinc-100/10 px-2 py-0.5 text-xs text-zinc-400"
+                      >
+                        {item.hunt_name}
+                      </span>
+                    ) : null}
+                    <div className="text-sm font-medium text-white">{item.title}</div>
+                    {item.address ? <div className="text-xs text-zinc-400">{item.address}</div> : null}
+                    <div className="mt-1 text-xs text-zinc-500">{actionRowLabel(item)}</div>
+                  </div>
                 </button>
               </li>
             ))}
