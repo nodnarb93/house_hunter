@@ -188,12 +188,28 @@ async function loadHealth(env: Env) {
     )
     .all<{ finished_at: string; result_summary: string | null }>()
 
-  let lastSuccessfulScrapeAt: string | null = null
+  // Fall back to listings.scraped_at when runs are empty or all errored so health matches visible data.
+  let latestSuccessfulRunAt: string | null = null
   for (const row of runRows.results ?? []) {
     if (!runSummaryHasError(row.result_summary)) {
-      lastSuccessfulScrapeAt = row.finished_at
+      latestSuccessfulRunAt = row.finished_at
       break
     }
+  }
+
+  const latestListingRow = await env.DB
+    .prepare(`SELECT MAX(scraped_at) AS m FROM listings`)
+    .first<{ m: string | null }>()
+  const latestListingScrapedAt = latestListingRow?.m ?? null
+
+  let lastSuccessfulScrapeAt: string | null = null
+  if (latestSuccessfulRunAt != null && latestListingScrapedAt != null) {
+    lastSuccessfulScrapeAt =
+      latestSuccessfulRunAt > latestListingScrapedAt ? latestSuccessfulRunAt : latestListingScrapedAt
+  } else if (latestSuccessfulRunAt != null) {
+    lastSuccessfulScrapeAt = latestSuccessfulRunAt
+  } else if (latestListingScrapedAt != null) {
+    lastSuccessfulScrapeAt = latestListingScrapedAt
   }
 
   const newCountRow = await env.DB
