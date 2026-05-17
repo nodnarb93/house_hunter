@@ -4,6 +4,7 @@ export interface HouseHunt {
   id: number
   name: string
   created_at: string
+  total_listings: number
 }
 
 export interface HuntFilters {

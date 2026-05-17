@@ -18,6 +18,7 @@ interface HouseHuntRow {
   id: number
   name: string
   created_at: string
+  total_listings?: number
 }
 
 interface FilterRow {
@@ -237,8 +238,21 @@ export async function handleHunts(request: Request, env: Env): Promise<Response>
 
   if (pathname === '/api/house-hunts') {
     if (request.method === 'GET') {
-      const rows = await env.DB.prepare('SELECT id, name, created_at FROM house_hunts ORDER BY created_at DESC').all<HouseHuntRow>()
-      return Response.json(rows.results ?? [])
+      const rows = await env.DB.prepare(
+        `SELECT h.id, h.name, h.created_at,
+                COALESCE(COUNT(l.id), 0) AS total_listings
+         FROM house_hunts h
+         LEFT JOIN listings l ON l.hunt_id = h.id
+         GROUP BY h.id, h.name, h.created_at
+         ORDER BY h.created_at DESC`,
+      ).all<HouseHuntRow>()
+      const results = (rows.results ?? []).map((row) => ({
+        id: row.id,
+        name: row.name,
+        created_at: row.created_at,
+        total_listings: Number(row.total_listings ?? 0),
+      }))
+      return Response.json(results)
     }
     if (request.method === 'POST') {
       let body: { name?: unknown }
@@ -253,7 +267,10 @@ export async function handleHunts(request: Request, env: Env): Promise<Response>
       const newId = r.meta.last_row_id
       const row = await env.DB.prepare('SELECT id, name, created_at FROM house_hunts WHERE id = ?').bind(newId).first<HouseHuntRow>()
       if (!row) return Response.json({ error: 'Failed to load created hunt' }, { status: 500 })
-      return Response.json({ id: row.id, name: row.name, created_at: row.created_at }, { status: 201 })
+      return Response.json(
+        { id: row.id, name: row.name, created_at: row.created_at, total_listings: 0 },
+        { status: 201 },
+      )
     }
     return new Response('Method not allowed', { status: 405 })
   }
