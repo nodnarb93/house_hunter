@@ -11,6 +11,9 @@ import Triage from './pages/Triage'
 import HuntList from './pages/HuntList'
 import HuntCreate from './pages/HuntCreate'
 import HuntDetail from './pages/HuntDetail'
+import HuntsOverview from './pages/HuntsOverview'
+import SettingsHub from './pages/SettingsHub'
+import BottomNav from './components/BottomNav'
 
 function pipelineNavClass({ isActive }: { isActive: boolean }) {
   return isActive
@@ -180,8 +183,8 @@ export default function App() {
             <NavLink to="/scrapers" className={pipelineNavClass}>
               Scrapers
             </NavLink>
-            <NavLink to="/settings" className={pipelineNavClass}>
-              Settings
+            <NavLink to="/settings/app" className={pipelineNavClass}>
+              App Settings
             </NavLink>
             <NavLink to="/runs" className={pipelineNavClass}>
               System Logs
@@ -200,9 +203,9 @@ export default function App() {
       />
 
       <main
-        className={`flex min-h-screen min-w-0 flex-1 flex-col px-4 py-6 sm:px-6 transition-[margin] duration-150 ${sidebarOpen ? 'md:ml-60' : 'md:ml-0'}`}
+        className={`flex min-h-screen min-w-0 flex-1 flex-col px-4 py-6 pb-16 sm:px-6 md:pb-6 transition-[margin] duration-150 ${sidebarOpen ? 'md:ml-60' : 'md:ml-0'}`}
       >
-        <div className="mb-4 flex items-center">
+        <div className="mb-4 hidden items-center md:flex">
           <button
             type="button"
             data-testid="sidebar-toggle"
@@ -218,14 +221,18 @@ export default function App() {
         <Routes>
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
           <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/hunts" element={<HuntsOverview />} />
           <Route path="/scrapers" element={<Scrapers />} />
-          <Route path="/settings" element={<Settings />} />
+          <Route path="/settings" element={<SettingsHub />} />
+          <Route path="/settings/app" element={<Settings />} />
           <Route path="/runs" element={<Runs />} />
           <Route path="/results" element={<Results />} />
           <Route path="/triage" element={<Triage />} />
           <Route path="/hunts/:id" element={<HuntDetail />} />
         </Routes>
       </main>
+
+      <BottomNav />
     </div>
   )
 }
