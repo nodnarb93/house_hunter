@@ -13,7 +13,7 @@ export default defineConfig({
   globalTeardown: './qa/playwright.global-teardown.ts',
   webServer: {
     command: 'npm start',
-    url: `http://localhost:${PW_PORT}`,
+    url: `http://127.0.0.1:${PW_PORT}`,
     reuseExistingServer: false,
     timeout: 120_000,
     env: {
@@ -27,7 +27,7 @@ export default defineConfig({
     {
       name: 'chromium',
       use: {
-        baseURL: `http://localhost:${PW_PORT}`,
+        baseURL: `http://127.0.0.1:${PW_PORT}`,
         ...devices['Desktop Chrome'],
       },
     },
