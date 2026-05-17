@@ -1,4 +1,6 @@
 import { useEffect, useState, type FocusEvent } from 'react'
+import { ListingGallery } from './ListingGallery'
+import { Lightbox } from './Lightbox'
 import Modal from './Modal'
 
 const STAGE_SECTIONS = [
@@ -14,6 +16,7 @@ export interface ListingDetailModalListing {
   title: string
   nickname: string | null
   displayName?: string
+  address: string | null
   stage: string
   interested_notes: string | null
   contacted_notes: string | null
@@ -32,15 +35,25 @@ export interface ListingDetailModalProps {
 
 export default function ListingDetailModal({ open, listing, onClose, onPatched }: ListingDetailModalProps) {
   const [expanded, setExpanded] = useState<Record<string, boolean>>({})
+  const [lightbox, setLightbox] = useState<{ index: number; imageUrls: string[] } | null>(null)
 
   useEffect(() => {
     if (!open || !listing) return
     const next: Record<string, boolean> = {}
     for (const s of STAGE_SECTIONS) next[s.key] = s.key === listing.stage
     setExpanded(next)
+    setLightbox(null)
   }, [open, listing?.id, listing?.stage])
 
   if (!listing) return null
+
+  const handleModalClose = () => {
+    if (lightbox) {
+      setLightbox(null)
+      return
+    }
+    onClose()
+  }
 
   const toggle = (k: string) => setExpanded((prev) => ({ ...prev, [k]: !prev[k] }))
 
@@ -57,76 +70,96 @@ export default function ListingDetailModal({ open, listing, onClose, onPatched }
   }
 
   return (
-    <Modal
-      open={open}
-      onClose={onClose}
-      ariaLabelledBy="listing-modal-title"
-      testId="triage-listing-modal"
-    >
-      <div className="flex items-start justify-between gap-4 border-b border-white/10 px-5 py-4">
-        <h2
-          id="listing-modal-title"
-          className="text-lg font-semibold text-white"
-          data-testid="triage-listing-modal-title"
-        >
-          {listing.displayName ?? listing.title}
-        </h2>
-        <button
-          type="button"
-          onClick={onClose}
-          aria-label="Close"
-          data-testid="triage-listing-modal-close"
-          className="rounded p-1 text-zinc-400 hover:bg-white/5 hover:text-white"
-        >
-          <svg
-            viewBox="0 0 24 24"
-            className="h-5 w-5"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            aria-hidden
+    <>
+      <Modal
+        open={open}
+        onClose={handleModalClose}
+        ariaLabelledBy="listing-modal-title"
+        testId="triage-listing-modal"
+      >
+        <ListingGallery
+          listingId={listing.id}
+          onOpenLightbox={(index, imageUrls) => setLightbox({ index, imageUrls })}
+        />
+        <div className="flex items-start justify-between gap-4 border-b border-white/10 px-5 py-4">
+          <div className="flex min-w-0 flex-col gap-1">
+            <h2
+              id="listing-modal-title"
+              className="text-lg font-semibold text-white"
+              data-testid="triage-listing-modal-title"
+            >
+              {listing.displayName ?? listing.title}
+            </h2>
+            {listing.address != null && listing.address !== '' ? (
+              <p data-testid="triage-listing-modal-address" className="text-sm text-zinc-400">
+                {listing.address}
+              </p>
+            ) : null}
+          </div>
+          <button
+            type="button"
+            onClick={handleModalClose}
+            aria-label="Close"
+            data-testid="triage-listing-modal-close"
+            className="rounded p-1 text-zinc-400 hover:bg-white/5 hover:text-white"
           >
-            <line x1="18" y1="6" x2="6" y2="18" />
-            <line x1="6" y1="6" x2="18" y2="18" />
-          </svg>
-        </button>
-      </div>
+            <svg
+              viewBox="0 0 24 24"
+              className="h-5 w-5"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden
+            >
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          </button>
+        </div>
 
-      <div className="flex flex-col divide-y divide-white/10">
-        {STAGE_SECTIONS.map((s) => {
-          const isOpen = !!expanded[s.key]
-          return (
-            <section key={s.key} data-testid={`triage-detail-section-${s.key}`}>
-              <button
-                type="button"
-                aria-expanded={isOpen}
-                data-testid={`triage-detail-section-header-${s.key}`}
-                onClick={() => toggle(s.key)}
-                className="flex w-full items-center justify-between px-5 py-3 text-left text-sm font-medium text-white hover:bg-white/5"
-              >
-                <span>
-                  {s.label}
-                  {s.key === listing.stage ? ' (current)' : ''}
-                </span>
-                <span aria-hidden className="text-zinc-500">
-                  {isOpen ? '−' : '+'}
-                </span>
-              </button>
-              {isOpen ? (
-                <div
-                  data-testid={`triage-detail-section-body-${s.key}`}
-                  className="flex flex-col gap-3 px-5 pb-4"
+        <div className="flex flex-col divide-y divide-white/10">
+          {STAGE_SECTIONS.map((s) => {
+            const isOpen = !!expanded[s.key]
+            return (
+              <section key={s.key} data-testid={`triage-detail-section-${s.key}`}>
+                <button
+                  type="button"
+                  aria-expanded={isOpen}
+                  data-testid={`triage-detail-section-header-${s.key}`}
+                  onClick={() => toggle(s.key)}
+                  className="flex w-full items-center justify-between px-5 py-3 text-left text-sm font-medium text-white hover:bg-white/5"
                 >
-                  {s.fields.map((field) => renderField(field, listing, patchField))}
-                </div>
-              ) : null}
-            </section>
-          )
-        })}
-      </div>
-    </Modal>
+                  <span>
+                    {s.label}
+                    {s.key === listing.stage ? ' (current)' : ''}
+                  </span>
+                  <span aria-hidden className="text-zinc-500">
+                    {isOpen ? '−' : '+'}
+                  </span>
+                </button>
+                {isOpen ? (
+                  <div
+                    data-testid={`triage-detail-section-body-${s.key}`}
+                    className="flex flex-col gap-3 px-5 pb-4"
+                  >
+                    {s.fields.map((field) => renderField(field, listing, patchField))}
+                  </div>
+                ) : null}
+              </section>
+            )
+          })}
+        </div>
+      </Modal>
+      {lightbox ? (
+        <Lightbox
+          imageUrls={lightbox.imageUrls}
+          initialIndex={lightbox.index}
+          onClose={() => setLightbox(null)}
+        />
+      ) : null}
+    </>
   )
 }
 
