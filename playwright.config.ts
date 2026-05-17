@@ -10,16 +10,19 @@ process.env.HOUSE_HUNTER_PW_DB_PATH = TMP_DB_PATH
 
 const PW_PORT = process.env.PW_TEST_PORT ?? '3002'
 
-// Playwright's webServer plugin probes the URL before running webServer.command,
-// so free the port at config load (before plugin setup), not only in prestart.
-try {
-  execSync('bash scripts/qa-free-port.sh', {
-    cwd: repoRoot,
-    env: { ...process.env, PORT: PW_PORT },
-    stdio: 'pipe',
-  })
-} catch {
-  /* best-effort */
+// Playwright probes the URL before running webServer.command, so free the port
+// at config load — but ONLY in the parent process. Workers also import this config
+// (and would otherwise re-run this block and kill the live webServer).
+if (!process.env.TEST_WORKER_INDEX) {
+  try {
+    execSync('bash scripts/qa-free-port.sh', {
+      cwd: repoRoot,
+      env: { ...process.env, PORT: PW_PORT },
+      stdio: 'pipe',
+    })
+  } catch {
+    /* best-effort */
+  }
 }
 
 export default defineConfig({
