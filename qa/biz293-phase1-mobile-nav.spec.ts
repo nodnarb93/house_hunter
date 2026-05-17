@@ -12,7 +12,7 @@ test.describe('BIZ-293 Phase 1 mobile bottom nav', () => {
     await page.goto('/dashboard')
 
     await expect(page.getByTestId('bottom-nav')).toBeVisible()
-    await expect(page.getByTestId('sidebar-toggle')).toHaveCount(0)
+    await expect(page.getByTestId('sidebar-toggle')).toBeHidden()
 
     const tabs = [
       { key: 'dashboard', path: '/dashboard' },

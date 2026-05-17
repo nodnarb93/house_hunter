@@ -35,16 +35,18 @@ test.describe('BIZ-105 / BIZ-106 — heading clears hamburger when sidebar close
     await page.reload()
   })
 
-  test('scrapers h1 is right of toggle when sidebar closed', async ({ page }) => {
+  test('scrapers h1 visible without hamburger; heading clears bottom nav', async ({ page }) => {
+    await expect(page.getByTestId('sidebar-toggle')).toBeHidden()
+    await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
+
     const headingBox = await page.getByRole('heading', { level: 1 }).boundingBox()
-    const toggleBox = await page.getByTestId('sidebar-toggle').boundingBox()
+    const bottomNavBox = await page.getByTestId('bottom-nav').boundingBox()
     expect(headingBox).not.toBeNull()
-    expect(toggleBox).not.toBeNull()
+    expect(bottomNavBox).not.toBeNull()
     const intersects =
-      headingBox!.x < toggleBox!.x + toggleBox!.width &&
-      headingBox!.x + headingBox!.width > toggleBox!.x &&
-      headingBox!.y < toggleBox!.y + toggleBox!.height &&
-      headingBox!.y + headingBox!.height > toggleBox!.y
+      headingBox!.y + headingBox!.height > bottomNavBox!.y &&
+      headingBox!.x < bottomNavBox!.x + bottomNavBox!.width &&
+      headingBox!.x + headingBox!.width > bottomNavBox!.x
     expect(intersects).toBe(false)
   })
 })

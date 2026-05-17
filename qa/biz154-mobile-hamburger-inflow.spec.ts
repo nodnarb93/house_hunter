@@ -35,7 +35,7 @@ async function seedOneBookmarked(request: APIRequestContext) {
   return { id }
 }
 
-test.describe('BIZ-154 mobile hamburger in-flow + symmetric main padding', () => {
+test.describe('BIZ-154 mobile layout (bottom nav)', () => {
   test.use({ viewport: { width: 375, height: 812 } })
 
   test.beforeEach(async ({ page }) => {
@@ -43,46 +43,31 @@ test.describe('BIZ-154 mobile hamburger in-flow + symmetric main padding', () =>
     await page.evaluate(() => window.localStorage.clear())
   })
 
-  test('toggle is in-flow inside <main> with static position; main padding is symmetric 16px', async ({ page }) => {
+  test('bottom nav visible; hamburger hidden; main padding symmetric with bottom inset', async ({ page }) => {
     await page.goto('/')
 
     const sidebar = page.getByTestId('sidebar')
     await expect(sidebar).toHaveClass(/-translate-x-full/)
-
-    const toggle = page.getByTestId('sidebar-toggle')
-    await expect(toggle).toBeVisible()
-
-    const insideMain = await page.evaluate(() => {
-      const main = document.querySelector('main')
-      const t = document.querySelector('[data-testid="sidebar-toggle"]')
-      return Boolean(main && t && main.contains(t))
-    })
-    expect(insideMain).toBe(true)
-
-    const togglePosition = await toggle.evaluate((el) => window.getComputedStyle(el).position)
-    expect(togglePosition).toBe('static')
+    await expect(page.getByTestId('sidebar-toggle')).toBeHidden()
+    await expect(page.getByTestId('bottom-nav')).toBeVisible()
 
     const padding = await page.locator('main').evaluate((el) => {
       const cs = window.getComputedStyle(el)
-      return { left: cs.paddingLeft, right: cs.paddingRight }
+      return { left: cs.paddingLeft, right: cs.paddingRight, bottom: cs.paddingBottom }
     })
     expect(padding.left).toBe('16px')
     expect(padding.right).toBe('16px')
+    expect(padding.bottom).toBe('64px')
   })
 
-  test('clicking the in-flow toggle opens the sidebar; X-in-sidebar closes it', async ({ page }) => {
-    await page.goto('/')
+  test('bottom nav tabs navigate without opening sidebar', async ({ page }) => {
+    await page.goto('/dashboard')
 
     const sidebar = page.getByTestId('sidebar')
     await expect(sidebar).toHaveClass(/-translate-x-full/)
 
-    await page.getByTestId('sidebar-toggle').click()
-    await expect(sidebar).not.toHaveClass(/-translate-x-full/)
-
-    const closeBtn = page.getByTestId('sidebar-close')
-    await expect(closeBtn).toBeVisible()
-
-    await closeBtn.click()
+    await page.getByTestId('bottom-nav-tab-hunts').click()
+    await expect(page).toHaveURL(/\/hunts$/)
     await expect(sidebar).toHaveClass(/-translate-x-full/)
   })
 

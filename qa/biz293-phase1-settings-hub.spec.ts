@@ -11,7 +11,7 @@ test.describe('BIZ-293 Phase 1 settings hub', () => {
     await page.getByTestId('settings-hub-app-settings').click()
     await expect(page).toHaveURL(/\/settings\/app$/)
     await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible()
-    await expect(page.getByText('Webhook URL')).toBeVisible()
+    await expect(page.getByText('Webhook URL', { exact: true })).toBeVisible()
 
     await page.goto('/settings')
     await page.getByTestId('settings-hub-scrapers').click()
