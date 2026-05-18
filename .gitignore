@@ -31,6 +31,7 @@ build/
 /blob-report/
 /playwright/.cache/
 qa/last-run/
+qa/captures/
 
 # Agent & test artifacts
 .playwright/
