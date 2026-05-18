@@ -58,11 +58,16 @@ test.describe('BIZ-295 Phase 2 hunts sort', () => {
       data: { scraper_ids: [scraperId] },
     })
     expect(wireZeta.status()).toBe(200)
+    const wireAlpha = await request.put(`/api/house-hunts/${alphaId}`, {
+      data: { scraper_ids: [scraperId] },
+    })
+    expect(wireAlpha.status()).toBe(200)
     await seedListing(request, { title: 'Zeta listing', huntId: zetaId, scraperId })
 
     await page.goto('/hunts')
-    await expect(page.getByTestId(`hunt-card-${zetaId}`)).toBeVisible()
-    await expect(page.getByTestId(`hunt-card-${alphaId}`)).toBeVisible()
+    const activeSection = page.getByTestId('hunts-overview-section-active')
+    await expect(activeSection.getByTestId(`hunt-card-${zetaId}`)).toBeVisible()
+    await expect(activeSection.getByTestId(`hunt-card-${alphaId}`)).toBeVisible()
 
     await expect
       .poll(async () => (await cardY(page, zetaId)) < (await cardY(page, alphaId)))
