@@ -1,4 +1,5 @@
 import { NavLink } from 'react-router-dom'
+import { useActivitySummary } from '../hooks/useActivitySummary'
 
 function HomeIcon(props: { className?: string }) {
   return (
@@ -70,6 +71,8 @@ function tabClass({ isActive }: { isActive: boolean }) {
 }
 
 export default function BottomNav() {
+  const { data } = useActivitySummary()
+
   return (
     <nav
       data-testid="bottom-nav"
@@ -85,7 +88,27 @@ export default function BottomNav() {
         >
           {({ isActive }) => (
             <>
-              <Icon className={`h-5 w-5 ${isActive ? 'text-white' : 'text-zinc-400'}`} />
+              <span className="relative inline-flex">
+                <Icon className={`h-5 w-5 ${isActive ? 'text-white' : 'text-zinc-400'}`} />
+                {key === 'dashboard' && data && data.unviewedMatchesCount > 0 ? (
+                  <span
+                    data-testid="bottom-nav-badge-dashboard"
+                    aria-label={`${data.unviewedMatchesCount} unviewed matches`}
+                    className="absolute -right-2 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-medium leading-none text-white"
+                  >
+                    {data.unviewedMatchesCount}
+                  </span>
+                ) : null}
+                {key === 'hunts' && data && data.huntsWithNewListingsCount > 0 ? (
+                  <span
+                    data-testid="bottom-nav-badge-hunts"
+                    aria-label={`${data.huntsWithNewListingsCount} hunts with new listings`}
+                    className="absolute -right-2 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-medium leading-none text-white"
+                  >
+                    {data.huntsWithNewListingsCount}
+                  </span>
+                ) : null}
+              </span>
               <span>{label}</span>
             </>
           )}

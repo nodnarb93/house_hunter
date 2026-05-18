@@ -14,6 +14,19 @@ export interface HouseHunt {
   max_price: number | null
   min_beds: number | null
   min_baths: number | null
+  unviewed_count: number
+  recent_listing_images: string[]
+}
+
+export interface ActivitySummary {
+  unviewedMatchesCount: number
+  huntsWithNewListingsCount: number
+}
+
+export async function getActivitySummary(): Promise<ActivitySummary> {
+  const r = await fetch(`${API}/activity-summary`)
+  if (!r.ok) throw new Error(await r.text())
+  return r.json()
 }
 
 export interface HuntFilters {
