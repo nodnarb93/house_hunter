@@ -58,17 +58,28 @@ test.describe('BIZ-295 Phase 2 hunts sort', () => {
       data: { scraper_ids: [scraperId] },
     })
     expect(wireZeta.status()).toBe(200)
+    const wireAlpha = await request.put(`/api/house-hunts/${alphaId}`, {
+      data: { scraper_ids: [scraperId] },
+    })
+    expect(wireAlpha.status()).toBe(200)
     await seedListing(request, { title: 'Zeta listing', huntId: zetaId, scraperId })
 
     await page.goto('/hunts')
-    await expect(page.getByTestId(`hunt-card-${zetaId}`)).toBeVisible()
-    await expect(page.getByTestId(`hunt-card-${alphaId}`)).toBeVisible()
+    const activeSection = page.getByTestId('hunts-overview-section-active')
+    await expect(activeSection.getByTestId(`hunt-card-${zetaId}`)).toBeVisible()
+    await expect(activeSection.getByTestId(`hunt-card-${alphaId}`)).toBeVisible()
 
+    await expect
+      .poll(async () => (await cardY(page, zetaId)) < (await cardY(page, alphaId)))
+      .toBe(true)
     let zetaY = await cardY(page, zetaId)
     let alphaY = await cardY(page, alphaId)
     expect(zetaY).toBeLessThan(alphaY)
 
     await page.getByTestId('hunts-overview-sort').selectOption('alpha')
+    await expect
+      .poll(async () => (await cardY(page, alphaId)) < (await cardY(page, zetaId)))
+      .toBe(true)
     zetaY = await cardY(page, zetaId)
     alphaY = await cardY(page, alphaId)
     expect(alphaY).toBeLessThan(zetaY)

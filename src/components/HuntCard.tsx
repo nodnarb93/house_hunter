@@ -39,6 +39,28 @@ function formatRelativeTime(iso: string): string {
   return '>1w ago'
 }
 
+function ActivityThumb({
+  huntId,
+  index,
+  src,
+}: {
+  huntId: number
+  index: number
+  src: string
+}) {
+  const [hidden, setHidden] = useState(false)
+  if (hidden) return null
+  return (
+    <img
+      src={src}
+      alt=""
+      className="h-14 w-14 shrink-0 rounded object-cover"
+      data-testid={`hunt-card-activity-thumb-${huntId}-${index}`}
+      onError={() => setHidden(true)}
+    />
+  )
+}
+
 function HousePlaceholderIcon() {
   return (
     <svg
@@ -83,8 +105,28 @@ export default function HuntCard({ hunt }: HuntCardProps) {
           <HousePlaceholderIcon />
         </div>
       )}
+      {hunt.recent_listing_images.length > 0 ? (
+        <div
+          className="flex gap-1 px-4 pt-2"
+          data-testid={`hunt-card-activity-strip-${hunt.id}`}
+        >
+          {hunt.recent_listing_images.map((url, index) => (
+            <ActivityThumb key={`${hunt.id}-${index}`} huntId={hunt.id} index={index} src={url} />
+          ))}
+        </div>
+      ) : null}
       <div className="px-4 py-3">
-        <h2 className="font-medium text-white">{hunt.name}</h2>
+        <div className="flex items-center justify-between gap-2">
+          <h2 className="font-medium text-white">{hunt.name}</h2>
+          {hunt.unviewed_count > 0 ? (
+            <span
+              data-testid={`hunt-card-new-badge-${hunt.id}`}
+              className="shrink-0 rounded px-2 py-0.5 text-xs font-medium bg-blue-500/20 text-blue-300"
+            >
+              {hunt.unviewed_count} new
+            </span>
+          ) : null}
+        </div>
         {locationSummary ? (
           <p
             className="mt-1 text-sm text-zinc-400"

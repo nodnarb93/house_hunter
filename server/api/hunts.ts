@@ -32,6 +32,19 @@ interface HouseHuntListRow extends HouseHuntRow {
   scraper_count?: number
   most_recent_image_url?: string | null
   bookmarked_image_url?: string | null
+  unviewed_count?: number
+  recent_listing_images_json?: string | null
+}
+
+function parseRecentListingImages(raw: string | null | undefined): string[] {
+  if (raw == null || raw === '') return []
+  try {
+    const parsed = JSON.parse(raw) as unknown
+    if (!Array.isArray(parsed)) return []
+    return parsed.filter((u): u is string => typeof u === 'string' && u.length > 0).slice(0, 3)
+  } catch {
+    return []
+  }
 }
 
 function serializeHouseHuntListRow(row: HouseHuntListRow) {
@@ -49,6 +62,8 @@ function serializeHouseHuntListRow(row: HouseHuntListRow) {
     max_price: row.max_price ?? null,
     min_beds: row.min_beds ?? null,
     min_baths: row.min_baths ?? null,
+    unviewed_count: Number(row.unviewed_count ?? 0),
+    recent_listing_images: parseRecentListingImages(row.recent_listing_images_json),
   }
 }
 
@@ -66,6 +81,8 @@ function emptyHouseHuntListPayload(row: HouseHuntRow) {
     max_price: null,
     min_beds: null,
     min_baths: null,
+    unviewed_count: 0,
+    recent_listing_images_json: null,
   })
 }
 
@@ -299,7 +316,13 @@ export async function handleHunts(request: Request, env: Env): Promise<Response>
              ORDER BY scraped_at DESC LIMIT 1) AS most_recent_image_url,
           (SELECT image_url FROM listings
              WHERE hunt_id = h.id AND image_url IS NOT NULL AND bookmarked = 1
-             ORDER BY scraped_at DESC LIMIT 1) AS bookmarked_image_url
+             ORDER BY scraped_at DESC LIMIT 1) AS bookmarked_image_url,
+          (SELECT COUNT(*) FROM listings WHERE hunt_id = h.id AND seen = 0) AS unviewed_count,
+          (SELECT json_group_array(image_url) FROM (
+             SELECT image_url FROM listings
+             WHERE hunt_id = h.id AND image_url IS NOT NULL
+             ORDER BY scraped_at DESC LIMIT 3
+           )) AS recent_listing_images_json
          FROM house_hunts h
          LEFT JOIN listings l ON l.hunt_id = h.id
          LEFT JOIN house_hunt_filters f ON f.hunt_id = h.id

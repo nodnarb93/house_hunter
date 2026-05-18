@@ -6,6 +6,38 @@ import HuntCreate from './HuntCreate'
 
 type SortMode = 'recent' | 'alpha'
 
+function HuntsOverviewSkeleton() {
+  return (
+    <div data-testid="hunts-overview-skeleton" className="flex flex-col gap-3">
+      {[0, 1, 2].map((i) => (
+        <div
+          key={i}
+          data-testid="hunts-overview-skeleton-card"
+          className="overflow-hidden rounded-lg border border-white/10 bg-zinc-900 animate-pulse"
+        >
+          <div className="aspect-video w-full bg-zinc-800" />
+          <div className="space-y-2 px-4 py-3">
+            <div className="h-4 w-2/3 rounded bg-zinc-800" />
+            <div className="h-3 w-1/2 rounded bg-zinc-800" />
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function HuntList({ hunts }: { hunts: HouseHunt[] }) {
+  return (
+    <ul className="flex flex-col gap-3">
+      {hunts.map((hunt) => (
+        <li key={hunt.id}>
+          <HuntCard hunt={hunt} />
+        </li>
+      ))}
+    </ul>
+  )
+}
+
 export default function HuntsOverview() {
   const [hunts, setHunts] = useState<HouseHunt[]>([])
   const [loading, setLoading] = useState(true)
@@ -53,6 +85,16 @@ export default function HuntsOverview() {
     return sorted
   }, [hunts, search, sortMode])
 
+  const activeHunts = useMemo(
+    () => displayedHunts.filter((h) => !h.is_paused),
+    [displayedHunts],
+  )
+  const pausedHunts = useMemo(
+    () => displayedHunts.filter((h) => h.is_paused),
+    [displayedHunts],
+  )
+  const showGroupedSections = pausedHunts.length > 0
+
   return (
     <div data-testid="hunts-overview">
       <div className="mb-4 flex flex-wrap items-center justify-between gap-4">
@@ -88,7 +130,7 @@ export default function HuntsOverview() {
       />
 
       {loading ? (
-        <p className="text-zinc-500">Loading…</p>
+        <HuntsOverviewSkeleton />
       ) : hunts.length === 0 ? (
         <div data-testid="hunts-overview-empty" className="rounded-lg border border-white/10 bg-zinc-900 p-6 text-center">
           <p className="text-zinc-300">No hunts yet — create one</p>
@@ -107,14 +149,24 @@ export default function HuntsOverview() {
         >
           <p className="text-zinc-300">No hunts match your search</p>
         </div>
+      ) : showGroupedSections ? (
+        <div className="flex flex-col gap-6">
+          <section data-testid="hunts-overview-section-active">
+            <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-zinc-400">
+              Active
+            </h2>
+            <HuntList hunts={activeHunts} />
+          </section>
+          <div className="border-t border-white/10" />
+          <section data-testid="hunts-overview-section-paused">
+            <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-zinc-400">
+              Paused
+            </h2>
+            <HuntList hunts={pausedHunts} />
+          </section>
+        </div>
       ) : (
-        <ul className="flex flex-col gap-3">
-          {displayedHunts.map((hunt) => (
-            <li key={hunt.id}>
-              <HuntCard hunt={hunt} />
-            </li>
-          ))}
-        </ul>
+        <HuntList hunts={displayedHunts} />
       )}
 
       <HuntCreate
