@@ -92,7 +92,7 @@ export default function HuntCard({ hunt }: HuntCardProps) {
         ) : null}
         <p className="mt-2 text-xs text-zinc-500">
           <span data-testid={`hunt-card-active-count-${hunt.id}`}>
-            {hunt.active_listings_count} active
+            {hunt.active_listings_count ?? 0} active
           </span>
           {' · '}
           <span data-testid={`hunt-card-last-scraped-${hunt.id}`}>{lastScrapedLabel}</span>

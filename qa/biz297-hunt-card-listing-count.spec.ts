@@ -30,29 +30,44 @@ async function seedListing(
 }
 
 test.describe('BIZ-297 HuntCard listing count', () => {
-  test('renders plural, singular, and zero listing counts', async ({ page, request }) => {
+  const createdHuntIds: number[] = []
+
+  test.afterEach(async ({ request }) => {
+    for (const id of createdHuntIds) {
+      await request.delete(`/api/house-hunts/${id}`).catch(() => {})
+    }
+    createdHuntIds.length = 0
+  })
+
+  test('renders plural, singular, and zero active listing counts', async ({ page, request }) => {
     const suffix = Date.now()
     const scraperId = await createScraper(request)
 
     const pluralName = `BIZ297 plural ${suffix}`
     const pluralId = await createHunt(request, pluralName)
+    createdHuntIds.push(pluralId)
     await seedListing(request, { title: 'Listing A', huntId: pluralId, scraperId })
     await seedListing(request, { title: 'Listing B', huntId: pluralId, scraperId })
 
     const singularName = `BIZ297 singular ${suffix}`
     const singularId = await createHunt(request, singularName)
+    createdHuntIds.push(singularId)
     await seedListing(request, { title: 'Only one', huntId: singularId, scraperId })
 
     const zeroName = `BIZ297 zero ${suffix}`
     const zeroId = await createHunt(request, zeroName)
+    createdHuntIds.push(zeroId)
+
+    const apiRes = await request.get('/api/house-hunts')
+    expect(apiRes.status()).toBe(200)
+    const apiHunts = (await apiRes.json()) as Array<{ id: number; active_listings_count: number }>
+    expect(apiHunts.find((h) => h.id === pluralId)?.active_listings_count).toBe(2)
+    expect(apiHunts.find((h) => h.id === singularId)?.active_listings_count).toBe(1)
+    expect(apiHunts.find((h) => h.id === zeroId)?.active_listings_count).toBe(0)
 
     await page.goto('/hunts')
-    await expect(page.getByTestId(`hunt-card-${pluralId}`)).toContainText('2 listings')
-    await expect(page.getByTestId(`hunt-card-${singularId}`)).toContainText('1 listing')
-    await expect(page.getByTestId(`hunt-card-${zeroId}`)).toContainText('0 listings')
-
-    await request.delete(`/api/house-hunts/${pluralId}`)
-    await request.delete(`/api/house-hunts/${singularId}`)
-    await request.delete(`/api/house-hunts/${zeroId}`)
+    await expect(page.getByTestId(`hunt-card-active-count-${pluralId}`)).toHaveText('2 active')
+    await expect(page.getByTestId(`hunt-card-active-count-${singularId}`)).toHaveText('1 active')
+    await expect(page.getByTestId(`hunt-card-active-count-${zeroId}`)).toHaveText('0 active')
   })
 })

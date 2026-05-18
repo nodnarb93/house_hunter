@@ -36,12 +36,22 @@ async function cardY(page: Page, huntId: number) {
 }
 
 test.describe('BIZ-295 Phase 2 hunts sort', () => {
+  const createdHuntIds: number[] = []
+
+  test.afterEach(async ({ request }) => {
+    for (const id of createdHuntIds) {
+      await request.delete(`/api/house-hunts/${id}`).catch(() => {})
+    }
+    createdHuntIds.length = 0
+  })
+
   test('recent activity vs alphabetical ordering', async ({ page, request }) => {
     const suffix = Date.now()
     const zetaName = `Zeta hunt ${suffix}`
     const alphaName = `Alpha hunt ${suffix}`
     const zetaId = await createHunt(request, zetaName)
     const alphaId = await createHunt(request, alphaName)
+    createdHuntIds.push(zetaId, alphaId)
     const scraperId = await createScraper(request)
 
     const wireZeta = await request.put(`/api/house-hunts/${zetaId}`, {
@@ -62,8 +72,5 @@ test.describe('BIZ-295 Phase 2 hunts sort', () => {
     zetaY = await cardY(page, zetaId)
     alphaY = await cardY(page, alphaId)
     expect(alphaY).toBeLessThan(zetaY)
-
-    await request.delete(`/api/house-hunts/${zetaId}`)
-    await request.delete(`/api/house-hunts/${alphaId}`)
   })
 })

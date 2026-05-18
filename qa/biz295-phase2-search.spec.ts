@@ -7,6 +7,15 @@ async function createHunt(request: APIRequestContext, name: string) {
 }
 
 test.describe('BIZ-295 Phase 2 hunts search', () => {
+  const createdHuntIds: number[] = []
+
+  test.afterEach(async ({ request }) => {
+    for (const id of createdHuntIds) {
+      await request.delete(`/api/house-hunts/${id}`).catch(() => {})
+    }
+    createdHuntIds.length = 0
+  })
+
   test('filters by hunt name and location text', async ({ page, request }) => {
     const suffix = Date.now()
     const seattleName = `Seattle Houses ${suffix}`
@@ -15,6 +24,7 @@ test.describe('BIZ-295 Phase 2 hunts search', () => {
     const seattleId = await createHunt(request, seattleName)
     const portlandId = await createHunt(request, portlandName)
     const bayId = await createHunt(request, bayName)
+    createdHuntIds.push(seattleId, portlandId, bayId)
 
     const put = await request.put(`/api/house-hunts/${seattleId}`, {
       data: { filters: { location_text: 'Seattle, WA' } },
@@ -41,9 +51,5 @@ test.describe('BIZ-295 Phase 2 hunts search', () => {
     await expect(page.getByTestId(`hunt-card-${seattleId}`)).toBeVisible()
     await expect(page.getByTestId(`hunt-card-${portlandId}`)).toHaveCount(0)
     await expect(page.getByTestId(`hunt-card-${bayId}`)).toHaveCount(0)
-
-    await request.delete(`/api/house-hunts/${seattleId}`)
-    await request.delete(`/api/house-hunts/${portlandId}`)
-    await request.delete(`/api/house-hunts/${bayId}`)
   })
 })
