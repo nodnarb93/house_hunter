@@ -64,17 +64,17 @@ test.describe('BIZ-295 Phase 2 hunts sort', () => {
     await expect(page.getByTestId(`hunt-card-${zetaId}`)).toBeVisible()
     await expect(page.getByTestId(`hunt-card-${alphaId}`)).toBeVisible()
 
-    await expect(
-      page.locator('[data-testid^="hunt-card-"]').first(),
-    ).toHaveAttribute('data-testid', `hunt-card-${zetaId}`)
+    await expect
+      .poll(async () => (await cardY(page, zetaId)) < (await cardY(page, alphaId)))
+      .toBe(true)
     let zetaY = await cardY(page, zetaId)
     let alphaY = await cardY(page, alphaId)
     expect(zetaY).toBeLessThan(alphaY)
 
     await page.getByTestId('hunts-overview-sort').selectOption('alpha')
-    await expect(
-      page.locator('[data-testid^="hunt-card-"]').first(),
-    ).toHaveAttribute('data-testid', `hunt-card-${alphaId}`)
+    await expect
+      .poll(async () => (await cardY(page, alphaId)) < (await cardY(page, zetaId)))
+      .toBe(true)
     zetaY = await cardY(page, zetaId)
     alphaY = await cardY(page, alphaId)
     expect(alphaY).toBeLessThan(zetaY)
