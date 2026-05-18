@@ -151,21 +151,15 @@ export default function HuntsOverview() {
         </div>
       ) : showGroupedSections ? (
         <div className="flex flex-col gap-6">
-          <section>
-            <h2
-              className="mb-3 text-sm font-semibold uppercase tracking-wide text-zinc-400"
-              data-testid="hunts-overview-section-active"
-            >
+          <section data-testid="hunts-overview-section-active">
+            <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-zinc-400">
               Active
             </h2>
             <HuntList hunts={activeHunts} />
           </section>
           <div className="border-t border-white/10" />
-          <section>
-            <h2
-              className="mb-3 text-sm font-semibold uppercase tracking-wide text-zinc-400"
-              data-testid="hunts-overview-section-paused"
-            >
+          <section data-testid="hunts-overview-section-paused">
+            <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-zinc-400">
               Paused
             </h2>
             <HuntList hunts={pausedHunts} />
