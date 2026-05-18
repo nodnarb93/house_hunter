@@ -65,15 +65,24 @@ test.describe('BIZ-313 HuntCard cover onError fallback', () => {
     })
     expect(put.status()).toBe(200)
 
+    const badUrl = `https://example.invalid/biz313-broken-${suffix}.jpg`
+    await page.route(badUrl, async (route) => {
+      await route.abort().catch(() => {})
+    })
+
     await seedListing(request, {
       title: 'Broken cover listing',
       huntId,
       scraperId,
-      image_url: 'https://example.invalid/biz313-broken.jpg',
+      image_url: badUrl,
     })
 
-    await page.goto('/hunts')
-    await expect(page.getByTestId(`hunt-card-cover-placeholder-${huntId}`)).toBeVisible()
-    await expect(page.getByTestId(`hunt-card-cover-${huntId}`)).toHaveCount(0)
+    try {
+      await page.goto('/hunts')
+      await expect(page.getByTestId(`hunt-card-cover-placeholder-${huntId}`)).toBeVisible()
+      await expect(page.getByTestId(`hunt-card-cover-${huntId}`)).toHaveCount(0)
+    } finally {
+      await page.unroute(badUrl)
+    }
   })
 })
