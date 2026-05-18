@@ -21,6 +21,54 @@ interface HouseHuntRow {
   total_listings?: number
 }
 
+interface HouseHuntListRow extends HouseHuntRow {
+  active_listings_count?: number
+  last_scraped_at?: string | null
+  location_text?: string | null
+  min_price?: number | null
+  max_price?: number | null
+  min_beds?: number | null
+  min_baths?: number | null
+  scraper_count?: number
+  most_recent_image_url?: string | null
+  bookmarked_image_url?: string | null
+}
+
+function serializeHouseHuntListRow(row: HouseHuntListRow) {
+  return {
+    id: row.id,
+    name: row.name,
+    created_at: row.created_at,
+    total_listings: Number(row.total_listings ?? 0),
+    active_listings_count: Number(row.active_listings_count ?? 0),
+    last_scraped_at: row.last_scraped_at ?? null,
+    cover_image_url: row.most_recent_image_url ?? row.bookmarked_image_url ?? null,
+    is_paused: Number(row.scraper_count ?? 0) === 0,
+    location_text: row.location_text ?? null,
+    min_price: row.min_price ?? null,
+    max_price: row.max_price ?? null,
+    min_beds: row.min_beds ?? null,
+    min_baths: row.min_baths ?? null,
+  }
+}
+
+function emptyHouseHuntListPayload(row: HouseHuntRow) {
+  return serializeHouseHuntListRow({
+    ...row,
+    total_listings: 0,
+    active_listings_count: 0,
+    last_scraped_at: null,
+    scraper_count: 0,
+    most_recent_image_url: null,
+    bookmarked_image_url: null,
+    location_text: null,
+    min_price: null,
+    max_price: null,
+    min_beds: null,
+    min_baths: null,
+  })
+}
+
 interface FilterRow {
   hunt_id: number
   min_price: number | null
@@ -239,19 +287,27 @@ export async function handleHunts(request: Request, env: Env): Promise<Response>
   if (pathname === '/api/house-hunts') {
     if (request.method === 'GET') {
       const rows = await env.DB.prepare(
-        `SELECT h.id, h.name, h.created_at,
-                COALESCE(COUNT(l.id), 0) AS total_listings
+        `SELECT
+          h.id, h.name, h.created_at,
+          COALESCE(COUNT(l.id), 0) AS total_listings,
+          COALESCE(SUM(CASE WHEN l.id IS NOT NULL AND l.stage != 'rejected' THEN 1 ELSE 0 END), 0) AS active_listings_count,
+          MAX(l.scraped_at) AS last_scraped_at,
+          f.location_text, f.min_price, f.max_price, f.min_beds, f.min_baths,
+          (SELECT COUNT(*) FROM house_hunt_scrapers WHERE hunt_id = h.id) AS scraper_count,
+          (SELECT image_url FROM listings
+             WHERE hunt_id = h.id AND image_url IS NOT NULL
+             ORDER BY scraped_at DESC LIMIT 1) AS most_recent_image_url,
+          (SELECT image_url FROM listings
+             WHERE hunt_id = h.id AND image_url IS NOT NULL AND bookmarked = 1
+             ORDER BY scraped_at DESC LIMIT 1) AS bookmarked_image_url
          FROM house_hunts h
          LEFT JOIN listings l ON l.hunt_id = h.id
-         GROUP BY h.id, h.name, h.created_at
+         LEFT JOIN house_hunt_filters f ON f.hunt_id = h.id
+         GROUP BY h.id, h.name, h.created_at,
+                  f.location_text, f.min_price, f.max_price, f.min_beds, f.min_baths
          ORDER BY h.created_at DESC`,
-      ).all<HouseHuntRow>()
-      const results = (rows.results ?? []).map((row) => ({
-        id: row.id,
-        name: row.name,
-        created_at: row.created_at,
-        total_listings: Number(row.total_listings ?? 0),
-      }))
+      ).all<HouseHuntListRow>()
+      const results = (rows.results ?? []).map(serializeHouseHuntListRow)
       return Response.json(results)
     }
     if (request.method === 'POST') {
@@ -267,10 +323,7 @@ export async function handleHunts(request: Request, env: Env): Promise<Response>
       const newId = r.meta.last_row_id
       const row = await env.DB.prepare('SELECT id, name, created_at FROM house_hunts WHERE id = ?').bind(newId).first<HouseHuntRow>()
       if (!row) return Response.json({ error: 'Failed to load created hunt' }, { status: 500 })
-      return Response.json(
-        { id: row.id, name: row.name, created_at: row.created_at, total_listings: 0 },
-        { status: 201 },
-      )
+      return Response.json(emptyHouseHuntListPayload(row), { status: 201 })
     }
     return new Response('Method not allowed', { status: 405 })
   }

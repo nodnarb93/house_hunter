@@ -5,6 +5,15 @@ export interface HouseHunt {
   name: string
   created_at: string
   total_listings: number
+  active_listings_count: number
+  last_scraped_at: string | null
+  cover_image_url: string | null
+  is_paused: boolean
+  location_text: string | null
+  min_price: number | null
+  max_price: number | null
+  min_beds: number | null
+  min_baths: number | null
 }
 
 export interface HuntFilters {

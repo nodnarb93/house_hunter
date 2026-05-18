@@ -149,35 +149,37 @@ export default function App() {
           </button>
         </div>
 
-        <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-zinc-500">Overview</div>
-        <nav className="mb-4 flex flex-col gap-1" aria-label="Overview">
-          <NavLink to="/dashboard" className={pipelineNavClass} data-testid="sidebar-dashboard-link">
-            Dashboard
-          </NavLink>
-        </nav>
+        <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
+          <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-zinc-500">Overview</div>
+          <nav className="mb-4 flex flex-col gap-1" aria-label="Overview">
+            <NavLink to="/dashboard" className={pipelineNavClass} data-testid="sidebar-dashboard-link">
+              Dashboard
+            </NavLink>
+          </nav>
 
-        <HuntList
-          hunts={hunts}
-          loading={huntsLoading}
-          onNew={() => setHuntModal({ open: true, mode: 'create', hunt: null })}
-          onEdit={(hunt) => setHuntModal({ open: true, mode: 'edit', hunt })}
-        />
+          <HuntList
+            hunts={hunts}
+            loading={huntsLoading}
+            onNew={() => setHuntModal({ open: true, mode: 'create', hunt: null })}
+            onEdit={(hunt) => setHuntModal({ open: true, mode: 'edit', hunt })}
+          />
 
-        <div className="mt-8 mb-2 text-xs font-semibold uppercase tracking-wide text-zinc-500">Triage</div>
-        <nav className="flex flex-col gap-1" aria-label="Triage">
-          <NavLink
-            to="/triage"
-            className={({ isActive }) =>
-              isActive
-                ? 'block rounded-md bg-zinc-800 px-3 py-2 text-sm text-white'
-                : 'block rounded-md px-3 py-2 text-sm text-zinc-400 hover:bg-zinc-800/50 hover:text-white'
-            }
-          >
-            Triage Board
-          </NavLink>
-        </nav>
+          <div className="mt-8 mb-2 text-xs font-semibold uppercase tracking-wide text-zinc-500">Triage</div>
+          <nav className="mb-4 flex flex-col gap-1" aria-label="Triage">
+            <NavLink
+              to="/triage"
+              className={({ isActive }) =>
+                isActive
+                  ? 'block rounded-md bg-zinc-800 px-3 py-2 text-sm text-white'
+                  : 'block rounded-md px-3 py-2 text-sm text-zinc-400 hover:bg-zinc-800/50 hover:text-white'
+              }
+            >
+              Triage Board
+            </NavLink>
+          </nav>
+        </div>
 
-        <div className="mt-auto border-t border-white/10 pt-4">
+        <div className="shrink-0 border-t border-white/10 pt-4">
           <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-zinc-500">Pipeline</div>
           <nav className="flex flex-col gap-1" aria-label="Pipeline configuration">
             <NavLink to="/scrapers" className={pipelineNavClass}>
