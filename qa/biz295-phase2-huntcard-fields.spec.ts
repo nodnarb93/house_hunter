@@ -78,7 +78,8 @@ test.describe('BIZ-295 Phase 2 hunt card fields', () => {
       title: 'Rich listing',
       huntId,
       scraperId,
-      image_url: 'https://example.invalid/biz295-cover.jpg',
+      image_url:
+        'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg==',
       scraped_at: new Date(Date.now() - 5 * 60_000).toISOString(),
     })
 

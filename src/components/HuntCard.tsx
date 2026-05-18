@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import type { HouseHunt } from '../api'
 
@@ -53,6 +54,7 @@ function HousePlaceholderIcon() {
 }
 
 export default function HuntCard({ hunt }: HuntCardProps) {
+  const [imgError, setImgError] = useState(false)
   const locationSummary = formatLocationSummary(hunt)
   const lastScrapedLabel = hunt.last_scraped_at
     ? `Updated ${formatRelativeTime(hunt.last_scraped_at)}`
@@ -65,12 +67,13 @@ export default function HuntCard({ hunt }: HuntCardProps) {
       data-testid={`hunt-card-${hunt.id}`}
       className="block overflow-hidden rounded-lg border border-white/10 bg-zinc-900 hover:bg-zinc-800/80"
     >
-      {hunt.cover_image_url ? (
+      {hunt.cover_image_url && !imgError ? (
         <img
           src={hunt.cover_image_url}
           alt=""
           className="aspect-video w-full object-cover"
           data-testid={`hunt-card-cover-${hunt.id}`}
+          onError={() => setImgError(true)}
         />
       ) : (
         <div
